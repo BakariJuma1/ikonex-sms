@@ -27,6 +27,7 @@ model Student {
   firstName       String
   lastName        String
   admissionNumber String   @unique
+  gender          String?
   classStreamId   String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -65,6 +66,7 @@ model Score {
   subjectId String
   examType  ExamType
   marks     Decimal  @db.Decimal(5, 2)
+  maxMarks  Decimal  @db.Decimal(5, 2) @default(100)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
