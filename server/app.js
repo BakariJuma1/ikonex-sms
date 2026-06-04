@@ -9,6 +9,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api/streams', require('./src/routes/classStream.routes'));
+app.use('/api/students', require('./src/routes/student.routes'));
 
 app.get('/', (req, res) => {
   res.json({ message: 'ikonex SMS API is running' });
