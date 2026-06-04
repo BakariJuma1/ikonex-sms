@@ -1,0 +1,23 @@
+{
+  "name": "ikonex-sms-server",
+  "version": "1.0.0",
+  "description": "ikonex SMS backend API",
+  "main": "app.js",
+  "scripts": {
+    "dev": "nodemon app.js",
+    "start": "node app.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.14.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "prisma": "^5.14.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.3"
+  }
+}

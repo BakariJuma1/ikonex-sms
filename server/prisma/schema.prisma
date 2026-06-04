@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ExamType {
+  EXAM
+  CAT
+}
+
+model ClassStream {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  students       Student[]
+  streamSubjects StreamSubject[]
+}
+
+model Student {
+  id              String   @id @default(cuid())
+  firstName       String
+  lastName        String
+  admissionNumber String   @unique
+  classStreamId   String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  classStream ClassStream @relation(fields: [classStreamId], references: [id])
+  scores      Score[]
+}
+
+model Subject {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  streamSubjects StreamSubject[]
+  scores         Score[]
+}
+
+model StreamSubject {
+  id            String   @id @default(cuid())
+  classStreamId String
+  subjectId     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  classStream ClassStream @relation(fields: [classStreamId], references: [id])
+  subject     Subject     @relation(fields: [subjectId], references: [id])
+
+  @@unique([classStreamId, subjectId])
+}
+
+model Score {
+  id        String   @id @default(cuid())
+  studentId String
+  subjectId String
+  examType  ExamType
+  marks     Decimal  @db.Decimal(5, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id])
+  subject Subject @relation(fields: [subjectId], references: [id])
+
+  @@unique([studentId, subjectId, examType])
+}
+
+model GradingScale {
+  id        String   @id @default(cuid())
+  minScore  Decimal  @db.Decimal(5, 2)
+  maxScore  Decimal  @db.Decimal(5, 2)
+  grade     String
+  points    Decimal  @db.Decimal(4, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
