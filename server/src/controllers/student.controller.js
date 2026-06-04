@@ -1,3 +1,4 @@
+
 const prisma = require('../prisma');
 
 const createStudent = async (req, res) => {
