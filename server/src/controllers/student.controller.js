@@ -106,3 +106,5 @@ const getStudentsByStream = async (req, res, next) => {
 };
 
 module.exports = { createStudent, getAllStudents, getStudentById, updateStudent, deleteStudent, getStudentsByStream };
+
+
