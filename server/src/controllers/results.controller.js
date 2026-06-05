@@ -1,4 +1,5 @@
 const prisma = require('../prisma');
+const { AppError } = require('../middleware/errorHandler');
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -16,17 +17,26 @@ function computeSubjectResults(scores, streamSubjects, gradingScales) {
     const exam = subjectScores.find((s) => s.examType === 'EXAM');
     const cat = subjectScores.find((s) => s.examType === 'CAT');
 
-    const examMarks = exam ? parseFloat(exam.marks) : 0;
-    const catMarks = cat ? parseFloat(cat.marks) : 0;
+    const examScore = exam ? parseFloat(exam.marks) : 0;
+    const catScore = cat ? parseFloat(cat.marks) : 0;
     const examMax = exam ? parseFloat(exam.maxMarks) : 0;
     const catMax = cat ? parseFloat(cat.maxMarks) : 0;
 
-    const totalMarks = round2(examMarks + catMarks);
+    const totalMarks = round2(examScore + catScore);
     const totalMaxMarks = round2(examMax + catMax);
     const percentage = totalMaxMarks > 0 ? round2((totalMarks / totalMaxMarks) * 100) : 0;
     const { grade, points } = lookupGrade(percentage, gradingScales);
 
-    return { subject: ss.subject, totalMarks, totalMaxMarks, percentage, grade, points };
+    return {
+      subject: ss.subject,
+      examMarks: exam ? examScore : null,
+      catMarks: cat ? catScore : null,
+      totalMarks,
+      totalMaxMarks,
+      percentage,
+      grade,
+      points,
+    };
   });
 }
 
@@ -49,7 +59,7 @@ function assignPositions(items, key = 'aggregateMarks') {
   return result;
 }
 
-const getStudentResults = async (req, res) => {
+const getStudentResults = async (req, res, next) => {
   const { studentId } = req.params;
 
   try {
@@ -57,9 +67,7 @@ const getStudentResults = async (req, res) => {
       where: { id: studentId },
       include: { classStream: true },
     });
-    if (!student) {
-      return res.status(404).json({ success: false, error: 'Student not found' });
-    }
+    if (!student) return next(new AppError('Student not found', 404));
 
     const [streamSubjects, gradingScales, allStreamStudents] = await Promise.all([
       prisma.streamSubject.findMany({
@@ -109,18 +117,16 @@ const getStudentResults = async (req, res) => {
       },
     });
   } catch (error) {
-    return res.status(500).json({ success: false, error: 'Failed to fetch student results' });
+    next(error);
   }
 };
 
-const getStreamResults = async (req, res) => {
+const getStreamResults = async (req, res, next) => {
   const { streamId } = req.params;
 
   try {
     const stream = await prisma.classStream.findUnique({ where: { id: streamId } });
-    if (!stream) {
-      return res.status(404).json({ success: false, error: 'Class stream not found' });
-    }
+    if (!stream) return next(new AppError('Class stream not found', 404));
 
     const [streamSubjects, gradingScales, students] = await Promise.all([
       prisma.streamSubject.findMany({
@@ -153,9 +159,7 @@ const getStreamResults = async (req, res) => {
     });
 
     const classPositionMap = assignPositions(studentData);
-    studentData.forEach((s) => {
-      s.classPosition = classPositionMap[s.id];
-    });
+    studentData.forEach((s) => { s.classPosition = classPositionMap[s.id]; });
 
     streamSubjects.forEach((_, subjectIdx) => {
       const subjectRankItems = studentData.map((s) => ({
@@ -180,8 +184,14 @@ const getStreamResults = async (req, res) => {
       },
     });
   } catch (error) {
-    return res.status(500).json({ success: false, error: 'Failed to fetch stream results' });
+    next(error);
   }
 };
 
-module.exports = { getStudentResults, getStreamResults };
+module.exports = {
+  getStudentResults,
+  getStreamResults,
+  computeSubjectResults,
+  computeOverall,
+  assignPositions,
+};

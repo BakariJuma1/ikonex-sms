@@ -1,114 +1,77 @@
 const prisma = require('../prisma');
+const { AppError } = require('../middleware/errorHandler');
 
-const createStream = async (req, res) => {
-  const { name } = req.body;
-
-  if (!name || !name.trim()) {
-    return res.status(400).json({ success: false, error: 'Stream name is required' });
-  }
-
+const createStream = async (req, res, next) => {
   try {
     const stream = await prisma.classStream.create({
-      data: { name: name.trim() },
+      data: { name: req.body.name.trim() },
     });
-
     return res.status(201).json({ success: true, data: stream });
   } catch (error) {
-    if (error.code === 'P2002') {
-      return res.status(409).json({ success: false, error: 'A stream with that name already exists' });
-    }
-    return res.status(500).json({ success: false, error: 'Failed to create stream' });
+    if (error.code === 'P2002') return next(new AppError('A stream with that name already exists', 409));
+    next(error);
   }
 };
 
-const getAllStreams = async (req, res) => {
+const getAllStreams = async (req, res, next) => {
   try {
     const streams = await prisma.classStream.findMany({
       orderBy: { name: 'asc' },
-      include: {
-        _count: { select: { students: true, streamSubjects: true } },
-      },
+      include: { _count: { select: { students: true, streamSubjects: true } } },
     });
-
     return res.json({ success: true, data: streams });
   } catch (error) {
-    return res.status(500).json({ success: false, error: 'Failed to fetch streams' });
+    next(error);
   }
 };
 
-const getStreamById = async (req, res) => {
-  const { id } = req.params;
-
+const getStreamById = async (req, res, next) => {
   try {
     const stream = await prisma.classStream.findUnique({
-      where: { id },
+      where: { id: req.params.id },
       include: {
-        students: {
-          orderBy: { lastName: 'asc' },
-        },
-        streamSubjects: {
-          include: { subject: true },
-        },
+        students: { orderBy: { lastName: 'asc' } },
+        streamSubjects: { include: { subject: true } },
       },
     });
-
-    if (!stream) {
-      return res.status(404).json({ success: false, error: 'Stream not found' });
-    }
-
+    if (!stream) return next(new AppError('Stream not found', 404));
     return res.json({ success: true, data: stream });
   } catch (error) {
-    return res.status(500).json({ success: false, error: 'Failed to fetch stream' });
+    next(error);
   }
 };
 
-const updateStream = async (req, res) => {
-  const { id } = req.params;
+const updateStream = async (req, res, next) => {
   const { name } = req.body;
-
-  if (!name || !name.trim()) {
-    return res.status(400).json({ success: false, error: 'Stream name is required' });
-  }
+  if (!name?.trim()) return next(new AppError('Stream name is required', 400));
 
   try {
     const stream = await prisma.classStream.update({
-      where: { id },
+      where: { id: req.params.id },
       data: { name: name.trim() },
     });
-
     return res.json({ success: true, data: stream });
   } catch (error) {
-    if (error.code === 'P2025') {
-      return res.status(404).json({ success: false, error: 'Stream not found' });
-    }
-    if (error.code === 'P2002') {
-      return res.status(409).json({ success: false, error: 'A stream with that name already exists' });
-    }
-    return res.status(500).json({ success: false, error: 'Failed to update stream' });
+    if (error.code === 'P2025') return next(new AppError('Stream not found', 404));
+    if (error.code === 'P2002') return next(new AppError('A stream with that name already exists', 409));
+    next(error);
   }
 };
 
-const deleteStream = async (req, res) => {
-  const { id } = req.params;
-
+const deleteStream = async (req, res, next) => {
   try {
-    const studentCount = await prisma.student.count({ where: { classStreamId: id } });
-
+    const studentCount = await prisma.student.count({ where: { classStreamId: req.params.id } });
     if (studentCount > 0) {
-      return res.status(409).json({
-        success: false,
-        error: `Cannot delete stream — it still has ${studentCount} student(s) assigned to it`,
-      });
+      return next(new AppError(
+        `Cannot delete stream — it still has ${studentCount} student(s) assigned to it`,
+        409
+      ));
     }
-
-    await prisma.classStream.delete({ where: { id } });
-
+    await prisma.classStream.delete({ where: { id: req.params.id } });
     return res.json({ success: true, data: { message: 'Stream deleted successfully' } });
   } catch (error) {
-    if (error.code === 'P2025') {
-      return res.status(404).json({ success: false, error: 'Stream not found' });
-    }
-    return res.status(500).json({ success: false, error: 'Failed to delete stream' });
+    if (error.code === 'P2025') return next(new AppError('Stream not found', 404));
+    next(error);
   }
 };
 

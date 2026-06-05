@@ -1,14 +1,10 @@
 const prisma = require('../prisma');
+const { AppError } = require('../middleware/errorHandler');
 
-const assignSubjectToStream = async (req, res) => {
+const assignSubjectToStream = async (req, res, next) => {
   const { classStreamId, subjectId } = req.body;
-
-  if (!classStreamId) {
-    return res.status(400).json({ success: false, error: 'classStreamId is required' });
-  }
-  if (!subjectId) {
-    return res.status(400).json({ success: false, error: 'subjectId is required' });
-  }
+  if (!classStreamId) return next(new AppError('classStreamId is required', 400));
+  if (!subjectId) return next(new AppError('subjectId is required', 400));
 
   try {
     const assignment = await prisma.streamSubject.create({
@@ -18,52 +14,37 @@ const assignSubjectToStream = async (req, res) => {
         subject: { select: { id: true, name: true, code: true } },
       },
     });
-
     return res.status(201).json({ success: true, data: assignment });
   } catch (error) {
-    if (error.code === 'P2002') {
-      return res.status(409).json({ success: false, error: 'Subject is already assigned to this stream' });
-    }
-    if (error.code === 'P2003') {
-      return res.status(400).json({ success: false, error: 'Stream or subject does not exist' });
-    }
-    return res.status(500).json({ success: false, error: 'Failed to assign subject to stream' });
+    if (error.code === 'P2002') return next(new AppError('Subject is already assigned to this stream', 409));
+    if (error.code === 'P2003') return next(new AppError('Stream or subject does not exist', 400));
+    next(error);
   }
 };
 
-const removeSubjectFromStream = async (req, res) => {
-  const { id } = req.params;
-
+const removeSubjectFromStream = async (req, res, next) => {
   try {
-    await prisma.streamSubject.delete({ where: { id } });
-
+    await prisma.streamSubject.delete({ where: { id: req.params.id } });
     return res.json({ success: true, data: { message: 'Subject removed from stream successfully' } });
   } catch (error) {
-    if (error.code === 'P2025') {
-      return res.status(404).json({ success: false, error: 'Assignment not found' });
-    }
-    return res.status(500).json({ success: false, error: 'Failed to remove subject from stream' });
+    if (error.code === 'P2025') return next(new AppError('Assignment not found', 404));
+    next(error);
   }
 };
 
-const getSubjectsByStream = async (req, res) => {
-  const { streamId } = req.params;
-
+const getSubjectsByStream = async (req, res, next) => {
   try {
-    const streamExists = await prisma.classStream.findUnique({ where: { id: streamId } });
-    if (!streamExists) {
-      return res.status(404).json({ success: false, error: 'Class stream not found' });
-    }
+    const stream = await prisma.classStream.findUnique({ where: { id: req.params.streamId } });
+    if (!stream) return next(new AppError('Class stream not found', 404));
 
     const assignments = await prisma.streamSubject.findMany({
-      where: { classStreamId: streamId },
+      where: { classStreamId: req.params.streamId },
       include: { subject: { select: { id: true, name: true, code: true } } },
       orderBy: { subject: { name: 'asc' } },
     });
-
     return res.json({ success: true, data: assignments });
   } catch (error) {
-    return res.status(500).json({ success: false, error: 'Failed to fetch subjects for stream' });
+    next(error);
   }
 };
 

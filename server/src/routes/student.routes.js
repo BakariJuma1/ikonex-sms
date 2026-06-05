@@ -1,16 +1,10 @@
 const { Router } = require('express');
-const {
-  createStudent,
-  getAllStudents,
-  getStudentById,
-  updateStudent,
-  deleteStudent,
-  getStudentsByStream,
-} = require('../controllers/student.controller');
+const { createStudent, getAllStudents, getStudentById, updateStudent, deleteStudent, getStudentsByStream } = require('../controllers/student.controller');
+const { validateCreateStudent } = require('../middleware/validate');
 
 const router = Router();
 
-router.post('/', createStudent);
+router.post('/', validateCreateStudent, createStudent);
 router.get('/', getAllStudents);
 router.get('/stream/:streamId', getStudentsByStream);
 router.get('/:id', getStudentById);

@@ -1,19 +1,8 @@
-
 const prisma = require('../prisma');
+const { AppError } = require('../middleware/errorHandler');
 
-const createStudent = async (req, res) => {
+const createStudent = async (req, res, next) => {
   const { firstName, lastName, admissionNumber, gender, classStreamId } = req.body;
-
-  if (!firstName?.trim() || !lastName?.trim()) {
-    return res.status(400).json({ success: false, error: 'First name and last name are required' });
-  }
-  if (!admissionNumber?.trim()) {
-    return res.status(400).json({ success: false, error: 'Admission number is required' });
-  }
-  if (!classStreamId) {
-    return res.status(400).json({ success: false, error: 'Class stream is required' });
-  }
-
   try {
     const student = await prisma.student.create({
       data: {
@@ -25,38 +14,30 @@ const createStudent = async (req, res) => {
       },
       include: { classStream: { select: { id: true, name: true } } },
     });
-
     return res.status(201).json({ success: true, data: student });
   } catch (error) {
-    if (error.code === 'P2002') {
-      return res.status(409).json({ success: false, error: 'A student with that admission number already exists' });
-    }
-    if (error.code === 'P2003') {
-      return res.status(400).json({ success: false, error: 'Class stream does not exist' });
-    }
-    return res.status(500).json({ success: false, error: 'Failed to create student' });
+    if (error.code === 'P2002') return next(new AppError('A student with that admission number already exists', 409));
+    if (error.code === 'P2003') return next(new AppError('Class stream does not exist', 400));
+    next(error);
   }
 };
 
-const getAllStudents = async (req, res) => {
+const getAllStudents = async (req, res, next) => {
   try {
     const students = await prisma.student.findMany({
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
       include: { classStream: { select: { id: true, name: true } } },
     });
-
     return res.json({ success: true, data: students });
   } catch (error) {
-    return res.status(500).json({ success: false, error: 'Failed to fetch students' });
+    next(error);
   }
 };
 
-const getStudentById = async (req, res) => {
-  const { id } = req.params;
-
+const getStudentById = async (req, res, next) => {
   try {
     const student = await prisma.student.findUnique({
-      where: { id },
+      where: { id: req.params.id },
       include: {
         classStream: { select: { id: true, name: true } },
         scores: {
@@ -65,21 +46,15 @@ const getStudentById = async (req, res) => {
         },
       },
     });
-
-    if (!student) {
-      return res.status(404).json({ success: false, error: 'Student not found' });
-    }
-
+    if (!student) return next(new AppError('Student not found', 404));
     return res.json({ success: true, data: student });
   } catch (error) {
-    return res.status(500).json({ success: false, error: 'Failed to fetch student' });
+    next(error);
   }
 };
 
-const updateStudent = async (req, res) => {
-  const { id } = req.params;
+const updateStudent = async (req, res, next) => {
   const { firstName, lastName, admissionNumber, gender, classStreamId } = req.body;
-
   const data = {};
   if (firstName !== undefined) data.firstName = firstName.trim();
   if (lastName !== undefined) data.lastName = lastName.trim();
@@ -87,73 +62,47 @@ const updateStudent = async (req, res) => {
   if (gender !== undefined) data.gender = gender?.trim() || null;
   if (classStreamId !== undefined) data.classStreamId = classStreamId;
 
-  if (Object.keys(data).length === 0) {
-    return res.status(400).json({ success: false, error: 'No fields provided to update' });
-  }
+  if (Object.keys(data).length === 0) return next(new AppError('No fields provided to update', 400));
 
   try {
     const student = await prisma.student.update({
-      where: { id },
+      where: { id: req.params.id },
       data,
       include: { classStream: { select: { id: true, name: true } } },
     });
-
     return res.json({ success: true, data: student });
   } catch (error) {
-    if (error.code === 'P2025') {
-      return res.status(404).json({ success: false, error: 'Student not found' });
-    }
-    if (error.code === 'P2002') {
-      return res.status(409).json({ success: false, error: 'A student with that admission number already exists' });
-    }
-    if (error.code === 'P2003') {
-      return res.status(400).json({ success: false, error: 'Class stream does not exist' });
-    }
-    return res.status(500).json({ success: false, error: 'Failed to update student' });
+    if (error.code === 'P2025') return next(new AppError('Student not found', 404));
+    if (error.code === 'P2002') return next(new AppError('A student with that admission number already exists', 409));
+    if (error.code === 'P2003') return next(new AppError('Class stream does not exist', 400));
+    next(error);
   }
 };
 
-const deleteStudent = async (req, res) => {
-  const { id } = req.params;
-
+const deleteStudent = async (req, res, next) => {
   try {
-    await prisma.student.delete({ where: { id } });
-
+    await prisma.student.delete({ where: { id: req.params.id } });
     return res.json({ success: true, data: { message: 'Student deleted successfully' } });
   } catch (error) {
-    if (error.code === 'P2025') {
-      return res.status(404).json({ success: false, error: 'Student not found' });
-    }
-    return res.status(500).json({ success: false, error: 'Failed to delete student' });
+    if (error.code === 'P2025') return next(new AppError('Student not found', 404));
+    next(error);
   }
 };
 
-const getStudentsByStream = async (req, res) => {
-  const { streamId } = req.params;
-
+const getStudentsByStream = async (req, res, next) => {
   try {
-    const streamExists = await prisma.classStream.findUnique({ where: { id: streamId } });
-    if (!streamExists) {
-      return res.status(404).json({ success: false, error: 'Class stream not found' });
-    }
+    const stream = await prisma.classStream.findUnique({ where: { id: req.params.streamId } });
+    if (!stream) return next(new AppError('Class stream not found', 404));
 
     const students = await prisma.student.findMany({
-      where: { classStreamId: streamId },
+      where: { classStreamId: req.params.streamId },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
       include: { classStream: { select: { id: true, name: true } } },
     });
-
     return res.json({ success: true, data: students });
   } catch (error) {
-    return res.status(500).json({ success: false, error: 'Failed to fetch students for stream' });
+    next(error);
   }
 };
 
-module.exports = {
-  createStudent,
-  getAllStudents,
-  getStudentById,
-  updateStudent,
-  deleteStudent,
-  getStudentsByStream,
-};
+module.exports = { createStudent, getAllStudents, getStudentById, updateStudent, deleteStudent, getStudentsByStream };
