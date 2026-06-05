@@ -17,23 +17,22 @@ function computeSubjectResults(scores, streamSubjects, gradingScales) {
     const exam = subjectScores.find((s) => s.examType === 'EXAM');
     const cat = subjectScores.find((s) => s.examType === 'CAT');
 
-    const examScore = exam ? parseFloat(exam.marks) : 0;
-    const catScore = cat ? parseFloat(cat.marks) : 0;
-    const examMax = exam ? parseFloat(exam.maxMarks) : 0;
-    const catMax = cat ? parseFloat(cat.maxMarks) : 0;
+    const examComponent = exam
+      ? round2((parseFloat(exam.marks) / parseFloat(exam.maxMarks)) * 70)
+      : 0;
+    const catComponent = cat
+      ? round2((parseFloat(cat.marks) / parseFloat(cat.maxMarks)) * 30)
+      : 0;
 
-    const totalMarks = round2(examScore + catScore);
-    const totalMaxMarks = round2(examMax + catMax);
-    const percentage = totalMaxMarks > 0 ? round2((totalMarks / totalMaxMarks) * 100) : 0;
-    const { grade, points } = lookupGrade(percentage, gradingScales);
+    const finalScore = round2(examComponent + catComponent);
+    const { grade, points } = lookupGrade(finalScore, gradingScales);
 
     return {
       subject: ss.subject,
-      examMarks: exam ? examScore : null,
-      catMarks: cat ? catScore : null,
-      totalMarks,
-      totalMaxMarks,
-      percentage,
+      examMarks: exam ? parseFloat(exam.marks) : null,
+      catMarks: cat ? parseFloat(cat.marks) : null,
+      totalMarks: finalScore,
+      percentage: finalScore,
       grade,
       points,
     };
@@ -42,9 +41,8 @@ function computeSubjectResults(scores, streamSubjects, gradingScales) {
 
 function computeOverall(subjectResults, gradingScales) {
   const totalMarks = subjectResults.reduce((sum, s) => sum + s.totalMarks, 0);
-  const totalMaxMarks = subjectResults.reduce((sum, s) => sum + s.totalMaxMarks, 0);
   const aggregateMarks = round2(subjectResults.reduce((sum, s) => sum + s.points, 0));
-  const meanScore = totalMaxMarks > 0 ? round2((totalMarks / totalMaxMarks) * 100) : 0;
+  const meanScore = subjectResults.length > 0 ? round2(totalMarks / subjectResults.length) : 0;
   const { grade: overallGrade } = lookupGrade(meanScore, gradingScales);
   return { aggregateMarks, meanScore, overallGrade };
 }
