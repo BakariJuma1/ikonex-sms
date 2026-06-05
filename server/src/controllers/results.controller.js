@@ -95,6 +95,23 @@ const getStudentResults = async (req, res, next) => {
     const subjectResults = computeSubjectResults(target.scores, streamSubjects, gradingScales);
     const { aggregateMarks, meanScore, overallGrade } = computeOverall(subjectResults, gradingScales);
 
+    // Compute per-subject positions within the stream
+    const allStudentSubjectResults = allStreamStudents.map((s) => ({
+      id: s.id,
+      subjectResults: computeSubjectResults(s.scores, streamSubjects, gradingScales),
+    }));
+    const subjectPositionMaps = streamSubjects.map((_, idx) => {
+      const items = allStudentSubjectResults.map((s) => ({
+        id: s.id,
+        percentage: s.subjectResults[idx].percentage,
+      }));
+      return assignPositions(items, 'percentage');
+    });
+    const subjectsWithPositions = subjectResults.map((sr, idx) => ({
+      ...sr,
+      subjectPosition: subjectPositionMaps[idx][studentId],
+    }));
+
     return res.json({
       success: true,
       data: {
@@ -106,7 +123,7 @@ const getStudentResults = async (req, res, next) => {
           gender: student.gender,
           classStream: { id: student.classStream.id, name: student.classStream.name },
         },
-        subjects: subjectResults,
+        subjects: subjectsWithPositions,
         overall: {
           aggregateMarks,
           meanScore,

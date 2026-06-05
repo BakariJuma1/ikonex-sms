@@ -93,6 +93,23 @@ const generateStudentReportCard = async (req, res, next) => {
     const { aggregateMarks, meanScore, overallGrade } = computeOverall(subjectResults, gradingScales);
     const classPosition = positionMap[studentId];
 
+    // Compute per-subject positions
+    const allStudentSubjectResults = allStreamStudents.map((s) => ({
+      id: s.id,
+      subjectResults: computeSubjectResults(s.scores, streamSubjects, gradingScales),
+    }));
+    const subjectPositionMaps = streamSubjects.map((_, idx) => {
+      const items = allStudentSubjectResults.map((s) => ({
+        id: s.id,
+        percentage: s.subjectResults[idx].percentage,
+      }));
+      return assignPositions(items, 'percentage');
+    });
+    const subjectsWithPositions = subjectResults.map((sr, idx) => ({
+      ...sr,
+      subjectPosition: subjectPositionMaps[idx][studentId],
+    }));
+
     const doc = new PDFDocument({ margin: MARGIN, size: 'A4', autoFirstPage: true });
     const filename = `report-card-${student.admissionNumber.replace(/\//g, '-')}.pdf`;
 
@@ -123,21 +140,22 @@ const generateStudentReportCard = async (req, res, next) => {
     y += 14;
 
     const subjectCols = [
-      { w: 145, align: 'left' },
-      { w: 52,  align: 'center' },
-      { w: 52,  align: 'center' },
+      { w: 130, align: 'left' },
+      { w: 45,  align: 'center' },
+      { w: 45,  align: 'center' },
+      { w: 48,  align: 'center' },
+      { w: 48,  align: 'center' },
+      { w: 58,  align: 'center' },
       { w: 55,  align: 'center' },
-      { w: 55,  align: 'center' },
-      { w: 62,  align: 'center' },
-      { w: 74,  align: 'center' },
+      { w: 66,  align: 'center' },
     ];
-    const subjectHeaders = ['Subject', 'EXAM', 'CAT', 'Total', 'Max', 'Percentage', 'Grade'];
+    const subjectHeaders = ['Subject', 'EXAM', 'CAT', 'Total', 'Max', 'Percentage', 'Grade', 'Position'];
 
     y = drawRow(doc, subjectCols, subjectHeaders, y, {
       bg: '#2c3e50', textColor: 'white', bold: true, rowH: HEADER_ROW_H,
     });
 
-    subjectResults.forEach((sr, i) => {
+    subjectsWithPositions.forEach((sr, i) => {
       y = checkPageBreak(doc, y, subjectCols, subjectHeaders);
       y = drawRow(doc, subjectCols, [
         sr.subject.name,
@@ -147,6 +165,7 @@ const generateStudentReportCard = async (req, res, next) => {
         sr.totalMaxMarks || '-',
         sr.totalMaxMarks > 0 ? `${sr.percentage}%` : '-',
         sr.grade,
+        sr.subjectPosition ? `${sr.subjectPosition}/${allStreamStudents.length}` : '-',
       ], y, { bg: i % 2 === 0 ? '#f7f9fb' : null });
     });
 

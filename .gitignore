@@ -1,3 +1,5 @@
 node_modules/
 .env
 *.pdf
+dist/
+.DS_Store
