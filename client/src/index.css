@@ -1,7 +1,46 @@
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* ── Mobile table horizontal scroll ── */
+.ant-table-wrapper {
+  overflow-x: auto;
+}
+
+/* ── Prevent overflowing selects / inputs ── */
+.ant-select,
+.ant-input,
+.ant-input-number {
+  max-width: 100%;
+}
+
+/* ── Page header: title + buttons wrap on small screens ── */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+/* ── Responsive select toolbar: selects fill width on mobile ── */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.filter-bar .ant-select {
+  flex: 1 1 180px;
+  min-width: 0;
 }

@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import {
   Table, Button, Modal, Form, Input, Select, Drawer,
   Popconfirm, message, Typography, Space, Descriptions,
-  Tag, Spin, Divider, Statistic, Row, Col, Empty, Upload, Alert, List,
+  Tag, Spin, Divider, Statistic, Row, Col, Empty, Upload, Alert, List, Grid,
 } from 'antd';
+
+const { useBreakpoint } = Grid;
 import {
   PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined,
   UploadOutlined, InboxOutlined, DownloadOutlined, CheckCircleOutlined,
@@ -21,6 +23,9 @@ const apiError = (error) =>
   'An unexpected error occurred';
 
 export default function Students() {
+  const screens = useBreakpoint();
+  const isMobile = screens.lg === false;
+
   const [students, setStudents] = useState([]);
   const [streams, setStreams] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -320,15 +325,11 @@ export default function Students() {
   return (
     <>
       {/* ── Page header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      <div className="page-header">
         <Typography.Title level={2} style={{ margin: 0 }}>Students</Typography.Title>
-        <Space>
-          <Button icon={<UploadOutlined />} onClick={openImportModal}>
-            Import CSV
-          </Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
-            New Student
-          </Button>
+        <Space wrap>
+          <Button icon={<UploadOutlined />} onClick={openImportModal}>Import CSV</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>New Student</Button>
         </Space>
       </div>
 
@@ -337,7 +338,7 @@ export default function Students() {
         <Select
           allowClear
           placeholder="Filter by stream"
-          style={{ width: 220 }}
+          style={{ width: '100%', maxWidth: 260 }}
           value={streamFilter}
           onChange={(v) => setStreamFilter(v ?? null)}
         >
@@ -354,6 +355,7 @@ export default function Students() {
         columns={columns}
         loading={loading}
         pagination={{ pageSize: 15, showSizeChanger: false }}
+        scroll={{ x: 'max-content' }}
         locale={{
           emptyText: (
             <Empty
@@ -373,7 +375,7 @@ export default function Students() {
         okText={editingStudent ? 'Save Changes' : 'Register'}
         confirmLoading={submitting}
         destroyOnClose
-        width={520}
+        width={isMobile ? '95vw' : 520}
       >
         <Form
           form={form}
@@ -382,7 +384,7 @@ export default function Students() {
           style={{ marginTop: 16 }}
         >
           <Row gutter={12}>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item
                 name="firstName"
                 label="First Name"
@@ -391,7 +393,7 @@ export default function Students() {
                 <Input placeholder="First name" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item
                 name="lastName"
                 label="Last Name"
@@ -411,7 +413,7 @@ export default function Students() {
           </Form.Item>
 
           <Row gutter={12}>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item name="gender" label="Gender">
                 <Select placeholder="Select gender" allowClear>
                   <Option value="Male">Male</Option>
@@ -420,7 +422,7 @@ export default function Students() {
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item
                 name="classStreamId"
                 label="Class Stream"
@@ -450,7 +452,7 @@ export default function Students() {
             Close
           </Button>,
         ]}
-        width={540}
+        width={isMobile ? '95vw' : 540}
         destroyOnClose
       >
         {/* Result summary */}
@@ -528,7 +530,7 @@ export default function Students() {
         }
         open={drawerOpen}
         onClose={closeDrawer}
-        width={620}
+        width={isMobile ? '100vw' : 620}
       >
         {drawerLoading && (
           <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}>
@@ -538,7 +540,7 @@ export default function Students() {
 
         {!drawerLoading && drawerData && (
           <>
-            <Descriptions bordered size="small" column={2}>
+            <Descriptions bordered size="small" column={isMobile ? 1 : 2}>
               <Descriptions.Item label="Admission No">
                 {drawerData.student.admissionNumber}
               </Descriptions.Item>
@@ -567,24 +569,25 @@ export default function Students() {
                   columns={scoreColumns}
                   size="small"
                   pagination={false}
+                  scroll={{ x: 'max-content' }}
                   style={{ marginBottom: 24 }}
                 />
 
                 <Row gutter={16}>
-                  <Col span={8}>
+                  <Col xs={8}>
                     <Statistic
                       title="Aggregate Points"
                       value={drawerData.overall.aggregateMarks}
                     />
                   </Col>
-                  <Col span={8}>
+                  <Col xs={8}>
                     <Statistic
                       title="Mean Score"
                       value={drawerData.overall.meanScore}
                       suffix="%"
                     />
                   </Col>
-                  <Col span={8}>
+                  <Col xs={8}>
                     <Statistic
                       title="Overall Grade"
                       value={drawerData.overall.overallGrade}

@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import {
   Table, Button, Modal, Form, Input, Select, Drawer,
-  Popconfirm, message, Typography, Space, Tag, Spin, Empty,
+  Popconfirm, message, Typography, Space, Tag, Spin, Empty, Grid,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, PlusCircleOutlined, ThunderboltOutlined, MinusCircleOutlined } from '@ant-design/icons';
+import {
+  PlusOutlined, EditOutlined, DeleteOutlined,
+  PlusCircleOutlined, ThunderboltOutlined, MinusCircleOutlined,
+} from '@ant-design/icons';
 import api from '../api/axios';
 
+const { useBreakpoint } = Grid;
 const { Option } = Select;
 
 const apiError = (error) =>
@@ -14,6 +18,9 @@ const apiError = (error) =>
   'An unexpected error occurred';
 
 export default function Subjects() {
+  const screens = useBreakpoint();
+  const isMobile = screens.lg === false;
+
   const [subjects, setSubjects] = useState([]);
   const [streams, setStreams] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -57,10 +64,7 @@ export default function Subjects() {
     }
   };
 
-  useEffect(() => {
-    fetchSubjects();
-    fetchStreams();
-  }, []);
+  useEffect(() => { fetchSubjects(); fetchStreams(); }, []);
 
   useEffect(() => {
     if (modalOpen && editingSubject) {
@@ -70,22 +74,9 @@ export default function Subjects() {
 
   // ── Create / Edit ─────────────────────────────────────────────────────────
 
-  const openCreateModal = () => {
-    setEditingSubject(null);
-    form.resetFields();
-    setModalOpen(true);
-  };
-
-  const openEditModal = (subject) => {
-    setEditingSubject(subject);
-    setModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setModalOpen(false);
-    setEditingSubject(null);
-    form.resetFields();
-  };
+  const openCreateModal = () => { setEditingSubject(null); form.resetFields(); setModalOpen(true); };
+  const openEditModal = (subject) => { setEditingSubject(subject); setModalOpen(true); };
+  const closeModal = () => { setModalOpen(false); setEditingSubject(null); form.resetFields(); };
 
   const handleSubmit = async (values) => {
     setSubmitting(true);
@@ -109,28 +100,24 @@ export default function Subjects() {
   // ── Bulk add ─────────────────────────────────────────────────────────────
 
   const openBulkModal = () => {
-    bulkForm.setFieldsValue({ subjects: [{ name: '', code: '' }, { name: '', code: '' }, { name: '', code: '' }] });
+    bulkForm.setFieldsValue({
+      subjects: [{ name: '', code: '' }, { name: '', code: '' }, { name: '', code: '' }],
+    });
     setBulkModalOpen(true);
   };
 
   const handleBulkAdd = async (values) => {
     const subjects = (values.subjects || []).filter((s) => s?.name?.trim() || s?.code?.trim());
-    if (subjects.length === 0) {
-      message.warning('Fill in at least one subject row');
-      return;
-    }
-
+    if (subjects.length === 0) { message.warning('Fill in at least one subject row'); return; }
     setBulkLoading(true);
     try {
       const { data } = await api.post('/subjects/bulk', { subjects });
       const { created, skippedCount } = data.data;
       if (created > 0) fetchSubjects();
       const msg = `${created} subject${created !== 1 ? 's' : ''} created`;
-      if (skippedCount > 0) {
-        message.warning(`${msg}, ${skippedCount} skipped (duplicates or missing fields)`);
-      } else {
-        message.success(msg);
-      }
+      skippedCount > 0
+        ? message.warning(`${msg}, ${skippedCount} skipped (duplicates or missing fields)`)
+        : message.success(msg);
       setBulkModalOpen(false);
       bulkForm.resetFields();
     } catch (error) {
@@ -154,25 +141,13 @@ export default function Subjects() {
 
   // ── Assign to stream ──────────────────────────────────────────────────────
 
-  const openAssignModal = (subject) => {
-    setAssigningSubject(subject);
-    assignForm.resetFields();
-    setAssignModalOpen(true);
-  };
-
-  const closeAssignModal = () => {
-    setAssignModalOpen(false);
-    setAssigningSubject(null);
-    assignForm.resetFields();
-  };
+  const openAssignModal = (subject) => { setAssigningSubject(subject); assignForm.resetFields(); setAssignModalOpen(true); };
+  const closeAssignModal = () => { setAssignModalOpen(false); setAssigningSubject(null); assignForm.resetFields(); };
 
   const handleAssign = async (values) => {
     setAssignSubmitting(true);
     try {
-      await api.post('/stream-subjects', {
-        classStreamId: values.classStreamId,
-        subjectId: assigningSubject.id,
-      });
+      await api.post('/stream-subjects', { classStreamId: values.classStreamId, subjectId: assigningSubject.id });
       message.success(`"${assigningSubject.name}" assigned to stream successfully`);
       closeAssignModal();
       fetchSubjects();
@@ -199,16 +174,12 @@ export default function Subjects() {
     }
   };
 
-  const closeDrawer = () => {
-    setDrawerOpen(false);
-    setDrawerData(null);
-  };
+  const closeDrawer = () => { setDrawerOpen(false); setDrawerData(null); };
 
   const handleUnassign = async (assignmentId, streamName) => {
     try {
       await api.delete(`/stream-subjects/${assignmentId}`);
       message.success(`Removed from "${streamName}"`);
-      // Refresh drawer and list count
       const { data } = await api.get(`/subjects/${drawerData.id}`);
       setDrawerData(data.data);
       fetchSubjects();
@@ -224,7 +195,7 @@ export default function Subjects() {
       title: 'Code',
       dataIndex: 'code',
       key: 'code',
-      width: 100,
+      width: 90,
       sorter: (a, b) => a.code.localeCompare(b.code),
     },
     {
@@ -239,31 +210,23 @@ export default function Subjects() {
       ),
     },
     {
-      title: 'Assigned Streams',
+      title: 'Streams',
       dataIndex: ['_count', 'streamSubjects'],
       key: 'streamSubjects',
       align: 'center',
-      width: 160,
+      width: 90,
     },
     {
       title: 'Actions',
       key: 'actions',
       align: 'center',
-      width: 280,
+      width: 240,
       render: (_, record) => (
-        <Space>
-          <Button
-            size="small"
-            icon={<PlusCircleOutlined />}
-            onClick={() => openAssignModal(record)}
-          >
-            Assign to Stream
+        <Space size={4} wrap>
+          <Button size="small" icon={<PlusCircleOutlined />} onClick={() => openAssignModal(record)}>
+            Assign
           </Button>
-          <Button
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => openEditModal(record)}
-          >
+          <Button size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)}>
             Edit
           </Button>
           <Popconfirm
@@ -274,9 +237,7 @@ export default function Subjects() {
             okButtonProps={{ danger: true }}
             cancelText="Cancel"
           >
-            <Button danger size="small" icon={<DeleteOutlined />}>
-              Delete
-            </Button>
+            <Button danger size="small" icon={<DeleteOutlined />}>Delete</Button>
           </Popconfirm>
         </Space>
       ),
@@ -287,15 +248,11 @@ export default function Subjects() {
 
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      <div className="page-header">
         <Typography.Title level={2} style={{ margin: 0 }}>Subjects</Typography.Title>
-        <Space>
-          <Button icon={<ThunderboltOutlined />} onClick={openBulkModal}>
-            Bulk Add
-          </Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
-            New Subject
-          </Button>
+        <Space wrap>
+          <Button icon={<ThunderboltOutlined />} onClick={openBulkModal}>Bulk Add</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>New Subject</Button>
         </Space>
       </div>
 
@@ -305,12 +262,10 @@ export default function Subjects() {
         columns={columns}
         loading={loading}
         pagination={{ pageSize: 15, showSizeChanger: false }}
+        scroll={{ x: 'max-content' }}
         locale={{
           emptyText: (
-            <Empty
-              description="No subjects yet. Add a subject to get started."
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-            />
+            <Empty description="No subjects yet. Add a subject to get started." image={Empty.PRESENTED_IMAGE_SIMPLE} />
           ),
         }}
       />
@@ -324,7 +279,7 @@ export default function Subjects() {
         okText="Add All"
         confirmLoading={bulkLoading}
         destroyOnClose
-        width={560}
+        width={isMobile ? '95vw' : 560}
       >
         <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
           Fill in each row with a subject name and code. Leave empty rows blank — they will be ignored.
@@ -332,7 +287,7 @@ export default function Subjects() {
         <Form form={bulkForm} onFinish={handleBulkAdd}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 4, paddingRight: 32 }}>
             <Typography.Text strong style={{ flex: 1 }}>Subject Name</Typography.Text>
-            <Typography.Text strong style={{ width: 110 }}>Code</Typography.Text>
+            <Typography.Text strong style={{ width: 90 }}>Code</Typography.Text>
           </div>
           <Form.List name="subjects">
             {(fields, { add, remove }) => (
@@ -345,12 +300,12 @@ export default function Subjects() {
                     <Form.Item
                       name={[name, 'code']}
                       normalize={(v) => v?.toUpperCase()}
-                      style={{ width: 110, margin: 0 }}
+                      style={{ width: 90, margin: 0 }}
                     >
-                      <Input placeholder="e.g. MAT" maxLength={10} />
+                      <Input placeholder="MAT" maxLength={10} />
                     </Form.Item>
                     <MinusCircleOutlined
-                      style={{ color: '#ff4d4f', cursor: 'pointer', fontSize: 16 }}
+                      style={{ color: '#ff4d4f', cursor: 'pointer', fontSize: 16, flexShrink: 0 }}
                       onClick={() => remove(name)}
                     />
                   </div>
@@ -378,6 +333,7 @@ export default function Subjects() {
         okText={editingSubject ? 'Save Changes' : 'Create'}
         confirmLoading={submitting}
         destroyOnClose
+        width={isMobile ? '95vw' : 480}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ marginTop: 16 }}>
           <Form.Item
@@ -407,15 +363,12 @@ export default function Subjects() {
         okText="Assign"
         confirmLoading={assignSubmitting}
         destroyOnClose
+        width={isMobile ? '95vw' : 480}
       >
         <Form form={assignForm} layout="vertical" onFinish={handleAssign} style={{ marginTop: 16 }}>
           <Form.Item label="Subject">
             <Input
-              value={
-                assigningSubject
-                  ? `${assigningSubject.name} (${assigningSubject.code})`
-                  : ''
-              }
+              value={assigningSubject ? `${assigningSubject.name} (${assigningSubject.code})` : ''}
               disabled
             />
           </Form.Item>
@@ -424,10 +377,8 @@ export default function Subjects() {
             label="Stream"
             rules={[{ required: true, message: 'Please select a stream' }]}
           >
-            <Select placeholder="Select a stream" autoFocus>
-              {streams.map((s) => (
-                <Option key={s.id} value={s.id}>{s.name}</Option>
-              ))}
+            <Select placeholder="Select a stream">
+              {streams.map((s) => <Option key={s.id} value={s.id}>{s.name}</Option>)}
             </Select>
           </Form.Item>
         </Form>
@@ -438,7 +389,7 @@ export default function Subjects() {
         title={drawerData ? `${drawerData.name} (${drawerData.code})` : 'Subject Details'}
         open={drawerOpen}
         onClose={closeDrawer}
-        width={420}
+        width={isMobile ? '100vw' : 420}
       >
         {drawerLoading && (
           <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}>
@@ -455,9 +406,7 @@ export default function Subjects() {
 
             <div style={{ marginTop: 16 }}>
               {drawerData.streamSubjects.length === 0 ? (
-                <Typography.Text type="secondary">
-                  Not assigned to any stream yet.
-                </Typography.Text>
+                <Typography.Text type="secondary">Not assigned to any stream yet.</Typography.Text>
               ) : (
                 <Space wrap>
                   {drawerData.streamSubjects.map(({ id, classStream }) => (
@@ -466,10 +415,7 @@ export default function Subjects() {
                       color="blue"
                       style={{ fontSize: 14, padding: '4px 10px' }}
                       closable
-                      onClose={(e) => {
-                        e.preventDefault();
-                        handleUnassign(id, classStream.name);
-                      }}
+                      onClose={(e) => { e.preventDefault(); handleUnassign(id, classStream.name); }}
                     >
                       {classStream.name}
                     </Tag>

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import {
   Table, Select, Button, Modal, Form, InputNumber,
-  Drawer, message, Typography, Space, Spin, Tag,
+  Drawer, message, Typography, Space, Spin, Tag, Grid,
 } from 'antd';
 import { BarChartOutlined, ThunderboltOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons';
+
 import api from '../api/axios';
 
+const { useBreakpoint } = Grid;
 const { Option } = Select;
 
 const apiError = (error) =>
@@ -16,6 +18,9 @@ const apiError = (error) =>
 const fmt = (val) => (val != null ? parseFloat(val) : 0);
 
 export default function Scores() {
+  const screens = useBreakpoint();
+  const isMobile = screens.lg === false;
+
   const [streams, setStreams] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [selectedStreamId, setSelectedStreamId] = useState(null);
@@ -360,30 +365,19 @@ export default function Scores() {
   return (
     <>
       {/* ── Page header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="page-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <Typography.Title level={2} style={{ margin: 0 }}>Scores</Typography.Title>
-          {bulkMode && (
-            <Tag color="blue" style={{ fontSize: 12 }}>Bulk Entry Mode</Tag>
-          )}
+          {bulkMode && <Tag color="blue" style={{ fontSize: 12 }}>Bulk Entry Mode</Tag>}
         </div>
 
-        <Space>
+        <Space wrap>
           {bulkMode ? (
             <>
-              <Button
-                icon={<CloseOutlined />}
-                onClick={cancelBulkMode}
-                disabled={bulkSaving}
-              >
+              <Button icon={<CloseOutlined />} onClick={cancelBulkMode} disabled={bulkSaving}>
                 Cancel
               </Button>
-              <Button
-                type="primary"
-                icon={<SaveOutlined />}
-                loading={bulkSaving}
-                onClick={saveBulkEdits}
-              >
+              <Button type="primary" icon={<SaveOutlined />} loading={bulkSaving} onClick={saveBulkEdits}>
                 Save All
               </Button>
             </>
@@ -396,7 +390,7 @@ export default function Scores() {
               )}
               {bothSelected && (
                 <Button icon={<BarChartOutlined />} onClick={() => setDrawerOpen(true)}>
-                  View Class Performance
+                  View Performance
                 </Button>
               )}
             </>
@@ -405,10 +399,10 @@ export default function Scores() {
       </div>
 
       {/* ── Cascading selects ── */}
-      <Space style={{ marginBottom: 20 }} wrap>
+      <div className="filter-bar" style={{ marginBottom: 20 }}>
         <Select
           placeholder="1. Select stream"
-          style={{ width: 200 }}
+          style={{ width: '100%', maxWidth: 220 }}
           value={selectedStreamId}
           onChange={handleStreamChange}
           allowClear
@@ -421,7 +415,7 @@ export default function Scores() {
 
         <Select
           placeholder="2. Select subject"
-          style={{ width: 230 }}
+          style={{ width: '100%', maxWidth: 260 }}
           value={selectedSubjectId}
           onChange={handleSubjectChange}
           disabled={!selectedStreamId || bulkMode}
@@ -439,7 +433,7 @@ export default function Scores() {
             </Option>
           ))}
         </Select>
-      </Space>
+      </div>
 
       {/* ── Table ── */}
       {bothSelected ? (
@@ -451,6 +445,7 @@ export default function Scores() {
           pagination={false}
           bordered
           size="middle"
+          scroll={{ x: 'max-content' }}
         />
       ) : (
         <div style={{
@@ -474,7 +469,7 @@ export default function Scores() {
         okText={scoreModal.existingScore ? 'Save Changes' : 'Save Score'}
         confirmLoading={submitting}
         destroyOnClose
-        width={340}
+        width={isMobile ? '95vw' : 340}
       >
         <Form form={form} layout="vertical" onFinish={handleScoreSubmit} style={{ marginTop: 16 }}>
           <Form.Item
@@ -498,7 +493,7 @@ export default function Scores() {
         title={drawerTitle}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        width={680}
+        width={isMobile ? '100vw' : 680}
       >
         {tableLoading ? (
           <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}>
@@ -511,6 +506,7 @@ export default function Scores() {
             columns={perfColumns}
             size="small"
             pagination={false}
+            scroll={{ x: 'max-content' }}
           />
         )}
       </Drawer>

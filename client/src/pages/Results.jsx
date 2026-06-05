@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import {
   Tabs, Select, Table, Descriptions, Statistic,
   Button, Tag, Typography, Space, Row, Col,
-  Spin, message, Divider, Empty,
+  Spin, message, Divider, Empty, Grid,
 } from 'antd';
+
 import { DownloadOutlined, FilePdfOutlined } from '@ant-design/icons';
 import api from '../api/axios';
 
+const { useBreakpoint } = Grid;
 const { Option } = Select;
 
 const GRADE_COLORS = { A: 'green', B: 'blue', C: 'gold', D: 'volcano', E: 'red' };
@@ -31,6 +33,9 @@ async function triggerPdfDownload(url, filename) {
 }
 
 export default function Results() {
+  const screens = useBreakpoint();
+  const isMobile = screens.lg === false;
+
   // ── Student tab ───────────────────────────────────────────────────────────
   const [students, setStudents] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState(null);
@@ -263,7 +268,7 @@ export default function Results() {
         <Select
           showSearch
           placeholder="Search by name or admission number"
-          style={{ width: 380 }}
+          style={{ width: '100%', maxWidth: 400 }}
           value={selectedStudentId}
           onChange={handleStudentChange}
           allowClear
@@ -300,11 +305,18 @@ export default function Results() {
         <>
           <div style={{
             display: 'flex',
+            flexWrap: 'wrap',
             justifyContent: 'space-between',
             alignItems: 'flex-start',
+            gap: 12,
             marginBottom: 20,
           }}>
-            <Descriptions bordered size="small" column={2} style={{ flex: 1, marginRight: 16 }}>
+            <Descriptions
+              bordered
+              size="small"
+              column={isMobile ? 1 : 2}
+              style={{ flex: 1 }}
+            >
               <Descriptions.Item label="Full Name">
                 {studentResult.student.firstName} {studentResult.student.lastName}
               </Descriptions.Item>
@@ -340,18 +352,19 @@ export default function Results() {
                 columns={subjectColumns}
                 size="middle"
                 pagination={false}
+                scroll={{ x: 'max-content' }}
                 style={{ marginBottom: 32 }}
               />
 
               <Row gutter={24}>
-                <Col span={8}>
+                <Col xs={8}>
                   <Statistic
                     title="Mean Score"
                     value={studentResult.overall.meanScore}
                     suffix="%"
                   />
                 </Col>
-                <Col span={8}>
+                <Col xs={8}>
                   <Statistic
                     title="Overall Grade"
                     value={studentResult.overall.overallGrade}
@@ -360,7 +373,7 @@ export default function Results() {
                     }}
                   />
                 </Col>
-                <Col span={8}>
+                <Col xs={8}>
                   <Statistic
                     title="Class Position"
                     value={studentResult.overall.classPosition}
@@ -381,13 +394,15 @@ export default function Results() {
     <>
       <div style={{
         display: 'flex',
+        flexWrap: 'wrap',
         justifyContent: 'space-between',
         alignItems: 'center',
+        gap: 8,
         marginBottom: 20,
       }}>
         <Select
           placeholder="Select a stream"
-          style={{ width: 240 }}
+          style={{ width: '100%', maxWidth: 260 }}
           value={selectedStreamId}
           onChange={handleStreamChange}
           allowClear
@@ -431,6 +446,7 @@ export default function Results() {
             columns={classColumns}
             size="middle"
             pagination={false}
+            scroll={{ x: 'max-content' }}
           />
         </>
       )}

@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import {
   Table, Button, Modal, Form, Input, InputNumber,
-  Popconfirm, message, Typography, Space, Tag, Empty,
+  Popconfirm, message, Typography, Space, Tag, Empty, Grid,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+
 import api from '../api/axios';
+
+const { useBreakpoint } = Grid;
 
 const GRADE_LETTER_COLORS = { A: 'green', B: 'blue', C: 'gold', D: 'volcano', E: 'red' };
 const gradeTagColor = (g) => GRADE_LETTER_COLORS[g?.[0]] ?? 'default';
@@ -15,6 +18,9 @@ const apiError = (error) =>
   'An unexpected error occurred';
 
 export default function GradingScale() {
+  const screens = useBreakpoint();
+  const isMobile = screens.lg === false;
+
   const [scales, setScales] = useState([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -158,12 +164,7 @@ export default function GradingScale() {
 
   return (
     <>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-      }}>
+      <div className="page-header">
         <Typography.Title level={2} style={{ margin: 0 }}>Grading Scale</Typography.Title>
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
           Add Grade
@@ -177,6 +178,7 @@ export default function GradingScale() {
         loading={loading}
         pagination={false}
         size="middle"
+        scroll={{ x: 'max-content' }}
         locale={{
           emptyText: (
             <Empty
@@ -195,7 +197,7 @@ export default function GradingScale() {
         okText={editingScale ? 'Save Changes' : 'Add Grade'}
         confirmLoading={submitting}
         destroyOnClose
-        width={380}
+        width={isMobile ? '95vw' : 380}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ marginTop: 16 }}>
           {!editingScale && (

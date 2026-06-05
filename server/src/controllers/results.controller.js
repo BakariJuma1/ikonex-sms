@@ -188,9 +188,106 @@ const getStreamResults = async (req, res, next) => {
   }
 };
 
+const getTopStudents = async (req, res, next) => {
+  const limit = Math.min(parseInt(req.query.limit) || 5, 20);
+
+  try {
+    const [students, allStreamSubjects, gradingScales] = await Promise.all([
+      prisma.student.findMany({
+        include: {
+          classStream: { select: { id: true, name: true } },
+          scores: true,
+        },
+      }),
+      prisma.streamSubject.findMany({
+        include: { subject: { select: { id: true, name: true, code: true } } },
+      }),
+      prisma.gradingScale.findMany(),
+    ]);
+
+    const streamSubjectsMap = {};
+    allStreamSubjects.forEach((ss) => {
+      if (!streamSubjectsMap[ss.classStreamId]) streamSubjectsMap[ss.classStreamId] = [];
+      streamSubjectsMap[ss.classStreamId].push(ss);
+    });
+
+    const withResults = students
+      .filter((s) => s.scores.length > 0)
+      .map((student) => {
+        const streamSubjects = streamSubjectsMap[student.classStreamId] || [];
+        const subjectResults = computeSubjectResults(student.scores, streamSubjects, gradingScales);
+        const { meanScore, overallGrade } = computeOverall(subjectResults, gradingScales);
+        return {
+          id: student.id,
+          firstName: student.firstName,
+          lastName: student.lastName,
+          admissionNumber: student.admissionNumber,
+          streamName: student.classStream?.name ?? '—',
+          meanScore,
+          overallGrade,
+        };
+      });
+
+    withResults.sort((a, b) => b.meanScore - a.meanScore);
+
+    const top = withResults.slice(0, limit).map((s, i) => ({ rank: i + 1, ...s }));
+
+    return res.json({ success: true, data: top });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getSubjectAverages = async (req, res, next) => {
+  try {
+    const scores = await prisma.score.findMany({
+      include: { subject: { select: { id: true, name: true, code: true } } },
+    });
+
+    if (scores.length === 0) return res.json({ success: true, data: [] });
+
+    const bySubject = {};
+    scores.forEach((score) => {
+      if (!bySubject[score.subjectId]) {
+        bySubject[score.subjectId] = { subject: score.subject, byStudent: {} };
+      }
+      if (!bySubject[score.subjectId].byStudent[score.studentId]) {
+        bySubject[score.subjectId].byStudent[score.studentId] = [];
+      }
+      bySubject[score.subjectId].byStudent[score.studentId].push(score);
+    });
+
+    const result = Object.values(bySubject).map(({ subject, byStudent }) => {
+      const percentages = Object.values(byStudent).map((studentScores) => {
+        const totalMarks = studentScores.reduce((sum, s) => sum + parseFloat(s.marks), 0);
+        const totalMaxMarks = studentScores.reduce((sum, s) => sum + parseFloat(s.maxMarks), 0);
+        return totalMaxMarks > 0 ? round2((totalMarks / totalMaxMarks) * 100) : 0;
+      });
+      const averageScore = round2(
+        percentages.reduce((sum, p) => sum + p, 0) / percentages.length
+      );
+      return {
+        subjectId: subject.id,
+        code: subject.code,
+        name: subject.name,
+        averageScore,
+        studentCount: Object.keys(byStudent).length,
+      };
+    });
+
+    result.sort((a, b) => b.averageScore - a.averageScore);
+
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getStudentResults,
   getStreamResults,
+  getTopStudents,
+  getSubjectAverages,
   computeSubjectResults,
   computeOverall,
   assignPositions,

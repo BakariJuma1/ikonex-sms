@@ -1,15 +1,20 @@
 import { useState, useEffect } from 'react';
 import {
   Table, Button, Modal, Form, Input, Drawer,
-  Popconfirm, message, Typography, Space, List, Tag, Spin, Empty,
+  Popconfirm, message, Typography, Space, List, Tag, Spin, Empty, Grid,
 } from 'antd';
 import { PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import api from '../api/axios';
+
+const { useBreakpoint } = Grid;
 
 const apiError = (error) =>
   error.response?.data?.error || 'An unexpected error occurred';
 
 export default function Streams() {
+  const screens = useBreakpoint();
+  const isMobile = screens.lg === false;
+
   const [streams, setStreams] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -39,9 +44,7 @@ export default function Streams() {
     }
   };
 
-  useEffect(() => {
-    fetchStreams();
-  }, []);
+  useEffect(() => { fetchStreams(); }, []);
 
   // ── Create / Edit ─────────────────────────────────────────────────────────
 
@@ -69,7 +72,6 @@ export default function Streams() {
       if (editingStream) {
         await api.put(`/streams/${editingStream.id}`, { name: values.name });
         message.success('Stream updated successfully');
-        // Refresh drawer if this stream is open
         if (selectedStream?.id === editingStream.id) {
           setSelectedStream((prev) => ({ ...prev, name: values.name }));
         }
@@ -105,27 +107,17 @@ export default function Streams() {
   // ── Bulk add ─────────────────────────────────────────────────────────────
 
   const handleBulkAdd = async () => {
-    const names = bulkText
-      .split('\n')
-      .map((n) => n.trim())
-      .filter(Boolean);
-
-    if (names.length === 0) {
-      message.warning('Enter at least one stream name');
-      return;
-    }
-
+    const names = bulkText.split('\n').map((n) => n.trim()).filter(Boolean);
+    if (names.length === 0) { message.warning('Enter at least one stream name'); return; }
     setBulkLoading(true);
     try {
       const { data } = await api.post('/streams/bulk', { names });
       const { created, skippedCount } = data.data;
       if (created > 0) fetchStreams();
       const msg = `${created} stream${created !== 1 ? 's' : ''} created`;
-      if (skippedCount > 0) {
-        message.warning(`${msg}, ${skippedCount} skipped (duplicates)`);
-      } else {
-        message.success(msg);
-      }
+      skippedCount > 0
+        ? message.warning(`${msg}, ${skippedCount} skipped (duplicates)`)
+        : message.success(msg);
       setBulkModalOpen(false);
       setBulkText('');
     } catch (error) {
@@ -151,12 +143,7 @@ export default function Streams() {
     }
   };
 
-  const closeDrawer = () => {
-    setDrawerOpen(false);
-    setSelectedStream(null);
-  };
-
-  // ── Remove subject from stream ────────────────────────────────────────────
+  const closeDrawer = () => { setDrawerOpen(false); setSelectedStream(null); };
 
   const handleRemoveSubject = async (assignmentId, subjectName) => {
     try {
@@ -184,14 +171,14 @@ export default function Streams() {
       dataIndex: ['_count', 'students'],
       key: 'students',
       align: 'center',
-      width: 110,
+      width: 100,
     },
     {
       title: 'Subjects',
       dataIndex: ['_count', 'streamSubjects'],
       key: 'streamSubjects',
       align: 'center',
-      width: 110,
+      width: 100,
     },
     {
       title: 'Actions',
@@ -199,33 +186,22 @@ export default function Streams() {
       align: 'center',
       width: 200,
       render: (_, record) => (
-        <Space>
-          <Button
-            type="primary"
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => handleView(record.id)}
-          >
+        <Space size={4} wrap>
+          <Button type="primary" size="small" icon={<EyeOutlined />} onClick={() => handleView(record.id)}>
             View
           </Button>
-          <Button
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => openEditModal(record)}
-          >
+          <Button size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)}>
             Edit
           </Button>
           <Popconfirm
             title="Delete stream"
-            description={`Delete "${record.name}"? Students in this stream will also be removed.`}
+            description={`Delete "${record.name}"?`}
             onConfirm={() => handleDelete(record.id)}
             okText="Delete"
             okButtonProps={{ danger: true }}
             cancelText="Cancel"
           >
-            <Button danger size="small" icon={<DeleteOutlined />}>
-              Delete
-            </Button>
+            <Button danger size="small" icon={<DeleteOutlined />}>Delete</Button>
           </Popconfirm>
         </Space>
       ),
@@ -236,9 +212,9 @@ export default function Streams() {
 
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      <div className="page-header">
         <Typography.Title level={2} style={{ margin: 0 }}>Streams</Typography.Title>
-        <Space>
+        <Space wrap>
           <Button icon={<ThunderboltOutlined />} onClick={() => { setBulkText(''); setBulkModalOpen(true); }}>
             Bulk Add
           </Button>
@@ -254,12 +230,10 @@ export default function Streams() {
         columns={columns}
         loading={loading}
         pagination={{ pageSize: 10, showSizeChanger: false }}
+        scroll={{ x: 'max-content' }}
         locale={{
           emptyText: (
-            <Empty
-              description="No streams yet. Create a stream to get started."
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-            />
+            <Empty description="No streams yet. Create a stream to get started." image={Empty.PRESENTED_IMAGE_SIMPLE} />
           ),
         }}
       />
@@ -273,7 +247,7 @@ export default function Streams() {
         okText="Add All"
         confirmLoading={bulkLoading}
         destroyOnClose
-        width={440}
+        width={isMobile ? '95vw' : 440}
       >
         <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
           Enter one stream name per line.
@@ -296,6 +270,7 @@ export default function Streams() {
         okText={editingStream ? 'Save Changes' : 'Create'}
         confirmLoading={submitting}
         destroyOnClose
+        width={isMobile ? '95vw' : 480}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ marginTop: 16 }}>
           <Form.Item
@@ -313,7 +288,7 @@ export default function Streams() {
         title={selectedStream ? selectedStream.name : 'Stream Details'}
         open={drawerOpen}
         onClose={closeDrawer}
-        width={480}
+        width={isMobile ? '100vw' : 480}
       >
         {drawerLoading && (
           <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}>
@@ -366,10 +341,7 @@ export default function Streams() {
                     key={id}
                     color="blue"
                     closable
-                    onClose={(e) => {
-                      e.preventDefault();
-                      handleRemoveSubject(id, subject.name);
-                    }}
+                    onClose={(e) => { e.preventDefault(); handleRemoveSubject(id, subject.name); }}
                   >
                     {subject.name} ({subject.code})
                   </Tag>
