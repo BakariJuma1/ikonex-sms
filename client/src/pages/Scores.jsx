@@ -96,15 +96,13 @@ export default function Scores() {
   // ── Score modal ───────────────────────────────────────────────────────────
 
   const openScoreModal = (student, examType, existingScore) => {
+    const maxMarks = examType === 'EXAM' ? 70 : 30;
     setScoreModal({ open: true, student, examType, existingScore });
     if (existingScore) {
-      form.setFieldsValue({
-        marks: fmt(existingScore.marks),
-        maxMarks: fmt(existingScore.maxMarks),
-      });
+      form.setFieldsValue({ marks: fmt(existingScore.marks), maxMarks });
     } else {
       form.resetFields();
-      form.setFieldsValue({ maxMarks: 100 });
+      form.setFieldsValue({ maxMarks });
     }
   };
 
@@ -146,6 +144,7 @@ export default function Scores() {
 
   const scoreCell = (record, examType) => {
     const score = record[examType];
+    const maxDisplay = examType === 'EXAM' ? 70 : 30;
     if (!score) {
       return (
         <Button
@@ -161,7 +160,7 @@ export default function Scores() {
       <Space size={6}>
         <Typography.Text strong>{fmt(score.marks)}</Typography.Text>
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-          / {fmt(score.maxMarks)}
+          / {maxDisplay}
         </Typography.Text>
         <Button size="small" onClick={() => openScoreModal(record, examType, score)}>
           Edit
@@ -183,29 +182,31 @@ export default function Scores() {
       render: (_, r) => `${r.firstName} ${r.lastName}`,
     },
     {
-      title: 'EXAM',
-      key: 'EXAM',
-      align: 'center',
-      width: 180,
-      render: (_, r) => scoreCell(r, 'EXAM'),
-    },
-    {
-      title: 'CAT',
+      title: 'CAT (30)',
       key: 'CAT',
       align: 'center',
       width: 180,
       render: (_, r) => scoreCell(r, 'CAT'),
     },
     {
-      title: 'Total',
-      key: 'total',
+      title: 'EXAM (70)',
+      key: 'EXAM',
       align: 'center',
-      width: 80,
+      width: 180,
+      render: (_, r) => scoreCell(r, 'EXAM'),
+    },
+    {
+      title: 'Average',
+      key: 'average',
+      align: 'center',
+      width: 100,
       render: (_, r) => {
         if (!r.EXAM && !r.CAT) {
           return <Typography.Text type="secondary">—</Typography.Text>;
         }
-        return fmt(r.EXAM?.marks) + fmt(r.CAT?.marks);
+        const total = fmt(r.EXAM?.marks) + fmt(r.CAT?.marks);
+        const max = (r.EXAM ? 70 : 0) + (r.CAT ? 30 : 0);
+        return `${total} / ${max}`;
       },
     },
   ];
@@ -223,29 +224,29 @@ export default function Scores() {
       render: (_, r) => `${r.firstName} ${r.lastName}`,
     },
     {
-      title: 'EXAM',
-      key: 'exam',
-      align: 'center',
-      width: 75,
-      render: (_, r) =>
-        r.EXAM ? fmt(r.EXAM.marks) : <Typography.Text type="secondary">—</Typography.Text>,
-    },
-    {
-      title: 'CAT',
+      title: 'CAT (30)',
       key: 'cat',
       align: 'center',
-      width: 75,
+      width: 85,
       render: (_, r) =>
         r.CAT ? fmt(r.CAT.marks) : <Typography.Text type="secondary">—</Typography.Text>,
     },
     {
-      title: 'Total / Max',
-      key: 'totalMax',
+      title: 'EXAM (70)',
+      key: 'exam',
+      align: 'center',
+      width: 85,
+      render: (_, r) =>
+        r.EXAM ? fmt(r.EXAM.marks) : <Typography.Text type="secondary">—</Typography.Text>,
+    },
+    {
+      title: 'Average',
+      key: 'average',
       align: 'center',
       width: 110,
       render: (_, r) => {
         const total = fmt(r.EXAM?.marks) + fmt(r.CAT?.marks);
-        const max = fmt(r.EXAM?.maxMarks) + fmt(r.CAT?.maxMarks);
+        const max = (r.EXAM ? 70 : 0) + (r.CAT ? 30 : 0);
         return max > 0
           ? `${total} / ${max}`
           : <Typography.Text type="secondary">—</Typography.Text>;
@@ -258,7 +259,7 @@ export default function Scores() {
       width: 75,
       render: (_, r) => {
         const total = fmt(r.EXAM?.marks) + fmt(r.CAT?.marks);
-        const max = fmt(r.EXAM?.maxMarks) + fmt(r.CAT?.maxMarks);
+        const max = (r.EXAM ? 70 : 0) + (r.CAT ? 30 : 0);
         if (max === 0) return <Typography.Text type="secondary">—</Typography.Text>;
         return `${((total / max) * 100).toFixed(1)}%`;
       },
@@ -391,15 +392,8 @@ export default function Scores() {
               autoFocus
             />
           </Form.Item>
-          <Form.Item
-            name="maxMarks"
-            label="Max Marks"
-            rules={[
-              { required: true, message: 'Max marks are required' },
-              { type: 'number', min: 1, message: 'Max marks must be at least 1' },
-            ]}
-          >
-            <InputNumber style={{ width: '100%' }} min={1} />
+          <Form.Item name="maxMarks" label="Max Marks">
+            <InputNumber style={{ width: '100%' }} disabled />
           </Form.Item>
         </Form>
       </Modal>

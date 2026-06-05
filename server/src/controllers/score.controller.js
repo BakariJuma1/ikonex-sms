@@ -165,4 +165,13 @@ const getScoresByStream = async (req, res, next) => {
   }
 };
 
-module.exports = { createScore, updateScore, deleteScore, getScoresByStudent, getScoresByStream };
+const getScoreCount = async (req, res, next) => {
+  try {
+    const count = await prisma.score.count();
+    return res.json({ success: true, data: { count } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { createScore, updateScore, deleteScore, getScoresByStudent, getScoresByStream, getScoreCount };
