@@ -1,6 +1,6 @@
 # Ikonex Academy — Student Management System
 
-A full-stack web application for managing class streams, students, subjects, scores, results, and PDF reports for Ikonex Academy.
+A full-stack web app built for the Ikonex Academy to handle everything from class setup to end-of-term report cards. Teachers can register students, enter scores, and download PDF reports without touching a spreadsheet.
 
 ---
 
@@ -10,160 +10,103 @@ A full-stack web application for managing class streams, students, subjects, sco
 |------------|------------------------------------|
 | Frontend   | React 19, Vite, Ant Design, Recharts |
 | Backend    | Node.js, Express                   |
-| Database   | PostgreSQL (via Prisma ORM)        |
+| Database   | PostgreSQL via Prisma ORM          |
 | PDF        | PDFKit                             |
-| Deployment | Railway (backend), Vercel (frontend) |
+| Deployment | Render (backend), Vercel (frontend) |
 
 ---
 
-## Features
+## What it does
 
-- **Class Stream Management** — Create and manage streams (e.g., Form 1A, Form 1B)
-- **Student Management** — Register, edit, delete students; assign to streams; bulk CSV import
-- **Subject Management** — CRUD for subjects; assign subjects to streams
-- **Scores** — Record EXAM (70 marks) and CAT (30 marks) per student per subject; bulk entry mode; duplicate prevention
-- **Results Processing** — Auto-calculates totals, averages, grades, subject positions, and class rankings with tie handling
-- **Configurable Grading Scale** — Set grade bands (A, B+, B, …, E) with points via the UI
-- **PDF Reports** — Individual student report cards and full class performance reports
+- **Class Streams** — Create and manage streams like Form 1A, Form 2B
+- **Students** — Register individually or bulk import via CSV; edit, delete, assign to streams
+- **Subjects** — Add subjects and assign them to specific streams
+- **Scores** — Record EXAM (out of 70) and CAT (out of 30) per student per subject with duplicate prevention
+- **Results** — Auto-calculates totals, percentages, grades, subject positions and class rankings with proper tie handling
+- **Grading Scale** — Grade bands are fully configurable from the UI, nothing is hardcoded
+- **PDF Reports** — Individual student report cards and full class performance reports, downloadable instantly
 
 ---
 
-## Local Development Setup
+## Local Setup
 
-### Prerequisites
+### What you need
 
 - Node.js 18+
 - PostgreSQL 14+
 - Git
 
-### 1. Clone the repository
+### 1. Clone the repo
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/BakariJuma1/ikonex-sms.git
 cd ikonex-sms
 ```
 
-### 2. Set up the backend
+### 2. Backend
 
 ```bash
 cd server
 cp .env.example .env
 ```
 
-Edit `.env` and set your database URL:
+Fill in your `.env`:
 
 ```
 DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/ikonex_sms?schema=public"
 PORT=5000
 ```
 
-Install dependencies and run migrations:
+Then:
 
 ```bash
 npm install
 npx prisma migrate dev --name init
-npm run seed          # loads default grading scales (A through E)
-npm run dev           # starts on http://localhost:5000
+npm run seed
+npm run dev
 ```
 
-### 3. Set up the frontend
+Server runs at `http://localhost:5000`
+
+### 3. Frontend
 
 ```bash
 cd ../client
 cp .env.example .env
 ```
 
-Edit `.env`:
+Fill in your `.env`:
 
 ```
 VITE_API_URL=http://localhost:5000/api
 ```
 
-Install and start:
+Then:
 
 ```bash
 npm install
-npm run dev           # starts on http://localhost:5173
+npm run dev
 ```
 
----
-
-## Running Tests
-
-Tests use Jest + Supertest with a mocked Prisma client — no live database required.
-
-```bash
-cd server
-npm test                  # run all tests
-npm run test:coverage     # run with coverage report
-```
-
-Test coverage includes:
-- Stream CRUD (create, read, update, delete, 404, duplicate 409)
-- Student CRUD (create, read, update, delete, stream filter, duplicate admission number)
-- Subject CRUD + stream assignment
-- Score entry (EXAM/CAT, duplicate prevention, validation, marks > maxMarks)
-- Results computation (unit tests for `computeSubjectResults`, `computeOverall`, `assignPositions`)
-- Results API (student results with grade/position, stream rankings)
-- Grading scale CRUD + validation
+App runs at `http://localhost:5173`
 
 ---
 
-## Deployment
+## How to use the system
 
-### Backend — Render
+Follow this order when setting up for the first time:
 
-The repo includes `render.yaml` at the root, which Render reads to create both the web service and a free PostgreSQL database automatically.
+**1. Grading Scales** (`/grading`)
+Check the default KCSE grade bands and adjust if needed. This affects all result calculations so do it first.
 
-1. Push the repository to GitHub
-2. Go to [render.com](https://render.com) → **New** → **Blueprint**
-3. Connect your GitHub repository — Render detects `render.yaml` and provisions:
-   - A **Node.js web service** (`ikonex-sms-api`) in the `server/` directory
-   - A **free PostgreSQL database** (`ikonex-sms-db`) with `DATABASE_URL` injected automatically
-4. Click **Apply** — the build runs `npm install && npx prisma generate && npx prisma migrate deploy` automatically
-5. Once deployed, open a **Shell** in the Render dashboard for the web service and seed the grading scales:
-   ```bash
-   node prisma/seed.js
-   ```
-6. Copy your service URL (e.g., `https://ikonex-sms-api.onrender.com`)
+**2. Create Streams** (`/streams`)
+Add your class streams — Form 1A, Form 1B, Form 2A, etc.
 
-> **Note:** Free Render services spin down after 15 minutes of inactivity and wake up on the next request (takes ~30 seconds). Free PostgreSQL databases expire after 90 days.
+**3. Add Subjects** (`/subjects`)
+Create subjects then use the **Assign to Stream** button to link each subject to the relevant streams.
 
-### Frontend — Vercel
-
-1. Go to [vercel.com](https://vercel.com) → **New Project** → import your GitHub repository
-2. Set **Root Directory** to `client`
-3. Add environment variable:
-   ```
-   VITE_API_URL=https://ikonex-sms-api.onrender.com/api
-   ```
-   *(Replace with your actual Render service URL)*
-4. Click **Deploy** — Vercel reads `client/vercel.json` for SPA routing automatically
-
----
-
-## System Usage Guide
-
-### Dashboard
-
-Open the app at your hosted URL. The dashboard shows:
-- Total students, streams, subjects, and score entries
-- Top 5 performing students (requires scores to be entered)
-- Subject average scores chart
-
-### Setting Up (recommended order)
-
-**Step 1 — Configure Grading Scales** (`/grading`)
-Before entering any results, verify or customize the grading bands. Default bands (A = 80–100, B+ = 75–79, etc.) are seeded automatically. Edit point values or score ranges as needed.
-
-**Step 2 — Create Streams** (`/streams`)
-Add your class streams (e.g., Form 1A, Form 1B, Form 2A). Each stream is unique.
-
-**Step 3 — Create Subjects** (`/subjects`)
-Add subjects (name + code, e.g., "Mathematics" / "MATH"). Then use the **Assign to Stream** button on each subject to link it to the relevant streams.
-
-**Step 4 — Register Students** (`/students`)
-Register students individually or use **Import CSV** for bulk upload. CSV format:
+**4. Register Students** (`/students`)
+Add students one by one or use **Import CSV** for bulk upload. CSV format:
 
 ```
 firstName,lastName,admissionNumber,gender,streamName
@@ -171,15 +114,49 @@ John,Doe,ADM/001,Male,Form 1A
 Jane,Smith,ADM/002,Female,Form 1A
 ```
 
-**Step 5 — Enter Scores** (`/scores`)
-1. Select a stream, then select a subject
-2. Enter scores per student individually (click **Add**/**Edit**) or switch to **Bulk Entry** mode to fill in all scores at once
-3. EXAM scores are out of 70; CAT scores are out of 30
+**5. Enter Scores** (`/scores`)
+Pick a stream, pick a subject, then enter EXAM and CAT scores per student. EXAM is out of 70, CAT out of 30.
 
-**Step 6 — View Results** (`/results`)
-- **Student Results** tab: search for a student to see their per-subject breakdown, grade, and class position
-- **Class Results** tab: select a stream to view the full ranked leaderboard
-- Download individual **Report Cards** or the full **Class Report** as PDF
+**6. View Results** (`/results`)
+Search a student to see their full breakdown and class position, or pick a stream to see the full ranked leaderboard. Download report cards as PDF from here.
+
+---
+
+## Running Tests
+
+```bash
+cd server
+npm test
+```
+
+Tests use Jest + Supertest with a mocked Prisma client — no live database needed.
+
+---
+
+## Deployment
+
+### Backend on Render
+
+The repo includes a `render.yaml` that sets up everything automatically.
+
+1. Push to GitHub
+2. Go to Render → **New** → **Blueprint**
+3. Connect your repo — Render detects the config and creates the web service and PostgreSQL database
+4. Click **Apply** and wait for the build to finish
+5. Open a **Shell** in the Render dashboard and run `node prisma/seed.js` to load the grading scales
+6. Copy your service URL
+
+> Free Render services sleep after 15 minutes of inactivity. First request after sleep takes about 30 seconds to wake up.
+
+### Frontend on Vercel
+
+1. Go to Vercel → **New Project** → import your repo
+2. Set **Root Directory** to `client`
+3. Add environment variable:
+   ```
+   VITE_API_URL=https://ikonex-sms-kgrd.onrender.com/api
+   ```
+4. Deploy
 
 ---
 
@@ -187,26 +164,24 @@ Jane,Smith,ADM/002,Female,Form 1A
 
 ```
 ikonex-sms/
-├── render.yaml              # Render Blueprint (web service + PostgreSQL)
-├── client/                  # React frontend (Vite)
+├── render.yaml
+├── client/
 │   ├── src/
-│   │   ├── pages/           # Dashboard, Streams, Students, Subjects, Scores, Results, GradingScale
-│   │   ├── layouts/         # MainLayout (sidebar navigation)
-│   │   └── api/axios.js     # Axios instance (reads VITE_API_URL)
-│   └── vercel.json          # Vercel SPA routing config
-│
-└── server/                  # Node.js/Express backend
-    ├── app.js               # Express app (exported for testing)
-    ├── Procfile             # Start command fallback
-    ├── __tests__/           # Jest + Supertest API tests
+│   │   ├── pages/
+│   │   ├── layouts/
+│   │   └── api/axios.js
+│   └── vercel.json
+└── server/
+    ├── app.js
+    ├── __tests__/
     ├── prisma/
-    │   ├── schema.prisma    # Database schema
-    │   ├── seed.js          # Default grading scales
-    │   └── migrations/      # SQL migration history
+    │   ├── schema.prisma
+    │   ├── seed.js
+    │   └── migrations/
     └── src/
-        ├── controllers/     # Business logic (streams, students, subjects, scores, results, pdf, gradingScale)
-        ├── routes/          # Express routers
-        └── middleware/      # Validation, error handling
+        ├── controllers/
+        ├── routes/
+        └── middleware/
 ```
 
 ---
@@ -223,34 +198,33 @@ ikonex-sms/
 | POST | `/api/students/import` | Bulk CSV import |
 | GET/POST | `/api/subjects` | List / create subjects |
 | GET/PUT/DELETE | `/api/subjects/:id` | Get / update / delete a subject |
-| POST | `/api/stream-subjects` | Assign subject to stream |
-| DELETE | `/api/stream-subjects/:id` | Remove subject from stream |
+| POST/DELETE | `/api/stream-subjects` | Assign / remove subject from stream |
 | GET/POST | `/api/scores` | Score count / create score |
 | PUT/DELETE | `/api/scores/:id` | Update / delete score |
 | GET | `/api/scores/student/:studentId` | Scores by student |
-| GET | `/api/scores/stream/:streamId?subjectId=` | Scores by stream + subject |
+| GET | `/api/scores/stream/:streamId?subjectId=` | Scores by stream and subject |
 | GET | `/api/results/student/:studentId` | Full results for one student |
 | GET | `/api/results/stream/:streamId` | Ranked results for a stream |
 | GET | `/api/results/top-students` | Top N students across all streams |
 | GET | `/api/results/subject-averages` | Average score per subject |
-| GET | `/api/pdf/student/:studentId` | Download student report card (PDF) |
-| GET | `/api/pdf/stream/:streamId` | Download class performance report (PDF) |
-| GET/POST | `/api/grading-scales` | List / create grading scale entries |
-| PUT/DELETE | `/api/grading-scales/:id` | Update / delete a grading scale entry |
+| GET | `/api/pdf/student/:studentId` | Student report card PDF |
+| GET | `/api/pdf/stream/:streamId` | Class performance report PDF |
+| GET/POST | `/api/grading-scales` | List / create grading scales |
+| PUT/DELETE | `/api/grading-scales/:id` | Update / delete a grading scale |
 
 ---
 
-## Architecture Decisions
+## Key decisions worth knowing
 
-- **Prisma ORM** was chosen for type-safe database access and easy migrations over raw SQL
-- **PDFKit** generates reports server-side so clients don't need any libraries
-- **Weighted scoring** uses EXAM (70 marks) + CAT (30 marks) = 100 total per subject
-- **Grade lookup** is table-driven (configurable via UI) rather than hard-coded, allowing the academy to adjust grade boundaries without code changes
-- **Tie-aware ranking** — students with identical aggregate marks receive the same position, and the next rank skips accordingly (standard competition ranking)
-- **Unique constraint** on `(studentId, subjectId, examType)` enforces at the database level that duplicate scores cannot be submitted
+- **Prisma over raw SQL** — type-safe queries and migrations that don't require writing SQL by hand
+- **Server-side PDF generation** — PDFKit runs on the backend so the client just downloads a file, no libraries needed in the browser
+- **KCSE scoring model** — EXAM is out of 70, CAT out of 30, total out of 100; mirrors the actual Kenyan secondary school standard rather than an arbitrary weighting system
+- **Table-driven grading** — grade boundaries live in the database and are editable from the UI; changing a grade band updates all future result calculations automatically
+- **Competition ranking** — ties get the same position and the next rank skips, which is the standard used in Kenyan schools
+- **Database-level duplicate prevention** — a unique constraint on `(studentId, subjectId, examType)` means duplicate scores are impossible even if the API is called directly
 
 ---
 
 ## Author
 
-Isaac Juma — Software Developer Intern Assessment, Ikonex Systems (June 2026)
+Isaac Juma — Software Developer Intern Assessment, Ikonex Systems, June 2026
