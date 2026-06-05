@@ -1,5 +1,453 @@
-import { Typography } from 'antd';
+import { useState, useEffect } from 'react';
+import {
+  Table, Button, Modal, Form, Input, Select, Drawer,
+  Popconfirm, message, Typography, Space, Descriptions,
+  Tag, Spin, Divider, Statistic, Row, Col,
+} from 'antd';
+import { PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import api from '../api/axios';
+
+const { Option } = Select;
+
+const GRADE_COLORS = { A: 'green', B: 'blue', C: 'gold', D: 'volcano', E: 'red' };
+const gradeColor = (grade) => GRADE_COLORS[grade] ?? 'default';
+
+const apiError = (error) =>
+  error.response?.data?.errors?.join(', ') ||
+  error.response?.data?.error ||
+  'An unexpected error occurred';
 
 export default function Students() {
-  return <Typography.Title level={2}>Students</Typography.Title>;
+  const [students, setStudents] = useState([]);
+  const [streams, setStreams] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [streamFilter, setStreamFilter] = useState(null);
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerLoading, setDrawerLoading] = useState(false);
+  const [drawerData, setDrawerData] = useState(null);
+
+  const [form] = Form.useForm();
+
+  const fetchStudents = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/students');
+      setStudents(data.data);
+    } catch (error) {
+      message.error(apiError(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStreams = async () => {
+    try {
+      const { data } = await api.get('/streams');
+      setStreams(data.data);
+    } catch (error) {
+      message.error(apiError(error));
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+    fetchStreams();
+  }, []);
+
+  // Pre-fill form when edit modal opens
+  useEffect(() => {
+    if (modalOpen && editingStudent) {
+      form.setFieldsValue({
+        firstName: editingStudent.firstName,
+        lastName: editingStudent.lastName,
+        admissionNumber: editingStudent.admissionNumber,
+        gender: editingStudent.gender || undefined,
+        classStreamId: editingStudent.classStreamId,
+      });
+    }
+  }, [modalOpen, editingStudent, form]);
+
+  const openCreateModal = () => {
+    setEditingStudent(null);
+    form.resetFields();
+    setModalOpen(true);
+  };
+
+  const openEditModal = (student) => {
+    setEditingStudent(student);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditingStudent(null);
+    form.resetFields();
+  };
+
+  const handleSubmit = async (values) => {
+    setSubmitting(true);
+    try {
+      if (editingStudent) {
+        await api.put(`/students/${editingStudent.id}`, values);
+        message.success('Student updated successfully');
+      } else {
+        await api.post('/students', values);
+        message.success('Student registered successfully');
+      }
+      closeModal();
+      fetchStudents();
+    } catch (error) {
+      message.error(apiError(error));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await api.delete(`/students/${id}`);
+      message.success('Student deleted successfully');
+      fetchStudents();
+    } catch (error) {
+      message.error(apiError(error));
+    }
+  };
+
+  const handleView = async (studentId) => {
+    setDrawerOpen(true);
+    setDrawerLoading(true);
+    setDrawerData(null);
+    try {
+      const { data } = await api.get(`/results/student/${studentId}`);
+      setDrawerData(data.data);
+    } catch (error) {
+      message.error(apiError(error));
+    } finally {
+      setDrawerLoading(false);
+    }
+  };
+
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    setDrawerData(null);
+  };
+
+  const filteredStudents = streamFilter
+    ? students.filter((s) => s.classStreamId === streamFilter)
+    : students;
+
+  const columns = [
+    {
+      title: 'Admission No',
+      dataIndex: 'admissionNumber',
+      key: 'admissionNumber',
+      sorter: (a, b) => a.admissionNumber.localeCompare(b.admissionNumber),
+    },
+    {
+      title: 'Full Name',
+      key: 'fullName',
+      sorter: (a, b) =>
+        `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`),
+      render: (_, r) => `${r.firstName} ${r.lastName}`,
+    },
+    {
+      title: 'Gender',
+      dataIndex: 'gender',
+      key: 'gender',
+      width: 100,
+      render: (v) => v || <Typography.Text type="secondary">—</Typography.Text>,
+    },
+    {
+      title: 'Class Stream',
+      dataIndex: ['classStream', 'name'],
+      key: 'classStream',
+      width: 140,
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      align: 'center',
+      width: 220,
+      render: (_, record) => (
+        <Space>
+          <Button
+            type="primary"
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => handleView(record.id)}
+          >
+            View
+          </Button>
+          <Button
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => openEditModal(record)}
+          >
+            Edit
+          </Button>
+          <Popconfirm
+            title="Delete student"
+            description={`Remove ${record.firstName} ${record.lastName}?`}
+            onConfirm={() => handleDelete(record.id)}
+            okText="Delete"
+            okButtonProps={{ danger: true }}
+            cancelText="Cancel"
+          >
+            <Button danger size="small" icon={<DeleteOutlined />}>
+              Delete
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
+  const scoreColumns = [
+    {
+      title: 'Subject',
+      dataIndex: ['subject', 'name'],
+      key: 'subject',
+    },
+    {
+      title: 'EXAM',
+      key: 'exam',
+      align: 'center',
+      width: 70,
+      render: (_, r) =>
+        r.examMarks != null
+          ? r.examMarks
+          : <Typography.Text type="secondary">—</Typography.Text>,
+    },
+    {
+      title: 'CAT',
+      key: 'cat',
+      align: 'center',
+      width: 70,
+      render: (_, r) =>
+        r.catMarks != null
+          ? r.catMarks
+          : <Typography.Text type="secondary">—</Typography.Text>,
+    },
+    {
+      title: 'Total / Max',
+      key: 'total',
+      align: 'center',
+      width: 100,
+      render: (_, r) =>
+        r.totalMaxMarks > 0
+          ? `${r.totalMarks} / ${r.totalMaxMarks}`
+          : <Typography.Text type="secondary">—</Typography.Text>,
+    },
+    {
+      title: '%',
+      dataIndex: 'percentage',
+      key: 'percentage',
+      align: 'center',
+      width: 70,
+      render: (v, r) =>
+        r.totalMaxMarks > 0
+          ? `${v}%`
+          : <Typography.Text type="secondary">—</Typography.Text>,
+    },
+    {
+      title: 'Grade',
+      dataIndex: 'grade',
+      key: 'grade',
+      align: 'center',
+      width: 70,
+      render: (v) => <Tag color={gradeColor(v)}>{v}</Tag>,
+    },
+  ];
+
+  return (
+    <>
+      {/* ── Page header ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <Typography.Title level={2} style={{ margin: 0 }}>Students</Typography.Title>
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
+          New Student
+        </Button>
+      </div>
+
+      {/* ── Stream filter ── */}
+      <div style={{ marginBottom: 16 }}>
+        <Select
+          allowClear
+          placeholder="Filter by stream"
+          style={{ width: 220 }}
+          value={streamFilter}
+          onChange={(v) => setStreamFilter(v ?? null)}
+        >
+          {streams.map((s) => (
+            <Option key={s.id} value={s.id}>{s.name}</Option>
+          ))}
+        </Select>
+      </div>
+
+      {/* ── Students table ── */}
+      <Table
+        rowKey="id"
+        dataSource={filteredStudents}
+        columns={columns}
+        loading={loading}
+        pagination={{ pageSize: 15, showSizeChanger: false }}
+      />
+
+      {/* ── Create / Edit Modal ── */}
+      <Modal
+        title={editingStudent ? 'Edit Student' : 'Register Student'}
+        open={modalOpen}
+        onCancel={closeModal}
+        onOk={() => form.submit()}
+        okText={editingStudent ? 'Save Changes' : 'Register'}
+        confirmLoading={submitting}
+        destroyOnClose
+        width={520}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          style={{ marginTop: 16 }}
+        >
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item
+                name="firstName"
+                label="First Name"
+                rules={[{ required: true, message: 'First name is required' }]}
+              >
+                <Input placeholder="First name" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="lastName"
+                label="Last Name"
+                rules={[{ required: true, message: 'Last name is required' }]}
+              >
+                <Input placeholder="Last name" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item
+            name="admissionNumber"
+            label="Admission Number"
+            rules={[{ required: true, message: 'Admission number is required' }]}
+          >
+            <Input placeholder="e.g. 2024/001" />
+          </Form.Item>
+
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item name="gender" label="Gender">
+                <Select placeholder="Select gender" allowClear>
+                  <Option value="Male">Male</Option>
+                  <Option value="Female">Female</Option>
+                  <Option value="Other">Other</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="classStreamId"
+                label="Class Stream"
+                rules={[{ required: true, message: 'Class stream is required' }]}
+              >
+                <Select placeholder="Select stream">
+                  {streams.map((s) => (
+                    <Option key={s.id} value={s.id}>{s.name}</Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
+      </Modal>
+
+      {/* ── View Drawer ── */}
+      <Drawer
+        title={
+          drawerData
+            ? `${drawerData.student.firstName} ${drawerData.student.lastName}`
+            : 'Student Details'
+        }
+        open={drawerOpen}
+        onClose={closeDrawer}
+        width={620}
+      >
+        {drawerLoading && (
+          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}>
+            <Spin size="large" />
+          </div>
+        )}
+
+        {!drawerLoading && drawerData && (
+          <>
+            <Descriptions bordered size="small" column={2}>
+              <Descriptions.Item label="Admission No">
+                {drawerData.student.admissionNumber}
+              </Descriptions.Item>
+              <Descriptions.Item label="Gender">
+                {drawerData.student.gender || '—'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Class Stream">
+                {drawerData.student.classStream.name}
+              </Descriptions.Item>
+              <Descriptions.Item label="Class Position">
+                {drawerData.overall.classPosition} / {drawerData.overall.totalStudentsInStream}
+              </Descriptions.Item>
+            </Descriptions>
+
+            <Divider orientation="left" style={{ marginTop: 24 }}>
+              Academic Results
+            </Divider>
+
+            {drawerData.subjects.length === 0 ? (
+              <Typography.Text type="secondary">No scores recorded yet.</Typography.Text>
+            ) : (
+              <>
+                <Table
+                  rowKey={(r) => r.subject.id}
+                  dataSource={drawerData.subjects}
+                  columns={scoreColumns}
+                  size="small"
+                  pagination={false}
+                  style={{ marginBottom: 24 }}
+                />
+
+                <Row gutter={16}>
+                  <Col span={8}>
+                    <Statistic
+                      title="Aggregate Points"
+                      value={drawerData.overall.aggregateMarks}
+                    />
+                  </Col>
+                  <Col span={8}>
+                    <Statistic
+                      title="Mean Score"
+                      value={drawerData.overall.meanScore}
+                      suffix="%"
+                    />
+                  </Col>
+                  <Col span={8}>
+                    <Statistic
+                      title="Overall Grade"
+                      value={drawerData.overall.overallGrade}
+                    />
+                  </Col>
+                </Row>
+              </>
+            )}
+          </>
+        )}
+      </Drawer>
+    </>
+  );
 }
