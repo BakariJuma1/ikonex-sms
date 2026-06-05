@@ -1,5 +1,6 @@
 const prisma = require('../prisma');
 const { AppError } = require('../middleware/errorHandler');
+const { parse } = require('csv-parse/sync');
 
 const createStudent = async (req, res, next) => {
   const { firstName, lastName, admissionNumber, gender, classStreamId } = req.body;
@@ -105,6 +106,90 @@ const getStudentsByStream = async (req, res, next) => {
   }
 };
 
-module.exports = { createStudent, getAllStudents, getStudentById, updateStudent, deleteStudent, getStudentsByStream };
+const importStudents = async (req, res, next) => {
+  if (!req.file) return next(new AppError('No CSV file uploaded', 400));
+
+  let rows;
+  try {
+    rows = parse(req.file.buffer.toString('utf-8'), {
+      columns: true,
+      trim: true,
+      skip_empty_lines: true,
+      bom: true,
+    });
+  } catch (err) {
+    return next(new AppError(`Invalid CSV format: ${err.message}`, 400));
+  }
+
+  if (rows.length === 0) return next(new AppError('CSV file has no data rows', 400));
+
+  try {
+    const streams = await prisma.classStream.findMany({ select: { id: true, name: true } });
+    const streamMap = new Map(streams.map((s) => [s.name.toLowerCase(), s.id]));
+
+    const existing = await prisma.student.findMany({ select: { admissionNumber: true } });
+    const existingAdmissions = new Set(existing.map((s) => s.admissionNumber.toLowerCase()));
+
+    const toCreate = [];
+    const skipped = [];
+    const seenInBatch = new Set();
+
+    rows.forEach((row, i) => {
+      const rowNum = i + 2;
+      const firstName = row.firstName?.trim();
+      const lastName = row.lastName?.trim();
+      const admissionNumber = row.admissionNumber?.trim();
+      const gender = row.gender?.trim() || null;
+      const classStreamName = row.classStreamName?.trim();
+
+      if (!firstName || !lastName || !admissionNumber || !classStreamName) {
+        skipped.push({
+          row: rowNum,
+          admissionNumber: admissionNumber || '—',
+          reason: 'Missing required field (firstName, lastName, admissionNumber or classStreamName)',
+        });
+        return;
+      }
+
+      const classStreamId = streamMap.get(classStreamName.toLowerCase());
+      if (!classStreamId) {
+        skipped.push({ row: rowNum, admissionNumber, reason: `Stream "${classStreamName}" not found` });
+        return;
+      }
+
+      const admLower = admissionNumber.toLowerCase();
+      if (existingAdmissions.has(admLower)) {
+        skipped.push({ row: rowNum, admissionNumber, reason: 'Admission number already exists in the database' });
+        return;
+      }
+
+      if (seenInBatch.has(admLower)) {
+        skipped.push({ row: rowNum, admissionNumber, reason: 'Duplicate admission number within the CSV' });
+        return;
+      }
+
+      seenInBatch.add(admLower);
+      toCreate.push({ firstName, lastName, admissionNumber, gender, classStreamId });
+    });
+
+    if (toCreate.length > 0) {
+      await prisma.student.createMany({ data: toCreate });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        totalRows: rows.length,
+        imported: toCreate.length,
+        skippedCount: skipped.length,
+        skipped,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { createStudent, getAllStudents, getStudentById, updateStudent, deleteStudent, getStudentsByStream, importStudents };
 
 

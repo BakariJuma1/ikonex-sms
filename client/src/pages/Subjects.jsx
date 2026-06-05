@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import {
   Table, Button, Modal, Form, Input, Select, Drawer,
-  Popconfirm, message, Typography, Space, Tag, Spin,
+  Popconfirm, message, Typography, Space, Tag, Spin, Empty,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, PlusCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, PlusCircleOutlined, ThunderboltOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import api from '../api/axios';
 
 const { Option } = Select;
@@ -31,6 +31,10 @@ export default function Subjects() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [drawerData, setDrawerData] = useState(null);
+
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkForm] = Form.useForm();
 
   const fetchSubjects = async () => {
     setLoading(true);
@@ -102,6 +106,40 @@ export default function Subjects() {
     }
   };
 
+  // ── Bulk add ─────────────────────────────────────────────────────────────
+
+  const openBulkModal = () => {
+    bulkForm.setFieldsValue({ subjects: [{ name: '', code: '' }, { name: '', code: '' }, { name: '', code: '' }] });
+    setBulkModalOpen(true);
+  };
+
+  const handleBulkAdd = async (values) => {
+    const subjects = (values.subjects || []).filter((s) => s?.name?.trim() || s?.code?.trim());
+    if (subjects.length === 0) {
+      message.warning('Fill in at least one subject row');
+      return;
+    }
+
+    setBulkLoading(true);
+    try {
+      const { data } = await api.post('/subjects/bulk', { subjects });
+      const { created, skippedCount } = data.data;
+      if (created > 0) fetchSubjects();
+      const msg = `${created} subject${created !== 1 ? 's' : ''} created`;
+      if (skippedCount > 0) {
+        message.warning(`${msg}, ${skippedCount} skipped (duplicates or missing fields)`);
+      } else {
+        message.success(msg);
+      }
+      setBulkModalOpen(false);
+      bulkForm.resetFields();
+    } catch (error) {
+      message.error(apiError(error));
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   // ── Delete ────────────────────────────────────────────────────────────────
 
   const handleDelete = async (id) => {
@@ -164,6 +202,19 @@ export default function Subjects() {
   const closeDrawer = () => {
     setDrawerOpen(false);
     setDrawerData(null);
+  };
+
+  const handleUnassign = async (assignmentId, streamName) => {
+    try {
+      await api.delete(`/stream-subjects/${assignmentId}`);
+      message.success(`Removed from "${streamName}"`);
+      // Refresh drawer and list count
+      const { data } = await api.get(`/subjects/${drawerData.id}`);
+      setDrawerData(data.data);
+      fetchSubjects();
+    } catch (error) {
+      message.error(apiError(error));
+    }
   };
 
   // ── Table columns ─────────────────────────────────────────────────────────
@@ -238,9 +289,14 @@ export default function Subjects() {
     <>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Typography.Title level={2} style={{ margin: 0 }}>Subjects</Typography.Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
-          New Subject
-        </Button>
+        <Space>
+          <Button icon={<ThunderboltOutlined />} onClick={openBulkModal}>
+            Bulk Add
+          </Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
+            New Subject
+          </Button>
+        </Space>
       </div>
 
       <Table
@@ -249,7 +305,69 @@ export default function Subjects() {
         columns={columns}
         loading={loading}
         pagination={{ pageSize: 15, showSizeChanger: false }}
+        locale={{
+          emptyText: (
+            <Empty
+              description="No subjects yet. Add a subject to get started."
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+            />
+          ),
+        }}
       />
+
+      {/* ── Bulk Add Modal ── */}
+      <Modal
+        title={<Space><ThunderboltOutlined />Bulk Add Subjects</Space>}
+        open={bulkModalOpen}
+        onCancel={() => { setBulkModalOpen(false); bulkForm.resetFields(); }}
+        onOk={() => bulkForm.submit()}
+        okText="Add All"
+        confirmLoading={bulkLoading}
+        destroyOnClose
+        width={560}
+      >
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
+          Fill in each row with a subject name and code. Leave empty rows blank — they will be ignored.
+        </Typography.Paragraph>
+        <Form form={bulkForm} onFinish={handleBulkAdd}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 4, paddingRight: 32 }}>
+            <Typography.Text strong style={{ flex: 1 }}>Subject Name</Typography.Text>
+            <Typography.Text strong style={{ width: 110 }}>Code</Typography.Text>
+          </div>
+          <Form.List name="subjects">
+            {(fields, { add, remove }) => (
+              <>
+                {fields.map(({ key, name }) => (
+                  <div key={key} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+                    <Form.Item name={[name, 'name']} style={{ flex: 1, margin: 0 }}>
+                      <Input placeholder="e.g. Mathematics" />
+                    </Form.Item>
+                    <Form.Item
+                      name={[name, 'code']}
+                      normalize={(v) => v?.toUpperCase()}
+                      style={{ width: 110, margin: 0 }}
+                    >
+                      <Input placeholder="e.g. MAT" maxLength={10} />
+                    </Form.Item>
+                    <MinusCircleOutlined
+                      style={{ color: '#ff4d4f', cursor: 'pointer', fontSize: 16 }}
+                      onClick={() => remove(name)}
+                    />
+                  </div>
+                ))}
+                <Button
+                  type="dashed"
+                  onClick={() => add({ name: '', code: '' })}
+                  icon={<PlusOutlined />}
+                  style={{ width: '100%', marginTop: 4 }}
+                >
+                  Add Row
+                </Button>
+              </>
+            )}
+          </Form.List>
+        </Form>
+      </Modal>
 
       {/* ── Create / Edit Modal ── */}
       <Modal
@@ -343,7 +461,16 @@ export default function Subjects() {
               ) : (
                 <Space wrap>
                   {drawerData.streamSubjects.map(({ id, classStream }) => (
-                    <Tag key={id} color="blue" style={{ fontSize: 14, padding: '4px 10px' }}>
+                    <Tag
+                      key={id}
+                      color="blue"
+                      style={{ fontSize: 14, padding: '4px 10px' }}
+                      closable
+                      onClose={(e) => {
+                        e.preventDefault();
+                        handleUnassign(id, classStream.name);
+                      }}
+                    >
                       {classStream.name}
                     </Tag>
                   ))}

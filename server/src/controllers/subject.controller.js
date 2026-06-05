@@ -78,4 +78,51 @@ const deleteSubject = async (req, res, next) => {
   }
 };
 
-module.exports = { createSubject, getAllSubjects, getSubjectById, updateSubject, deleteSubject };
+const bulkCreateSubjects = async (req, res, next) => {
+  const { subjects } = req.body;
+  if (!Array.isArray(subjects) || subjects.length === 0) {
+    return next(new AppError('subjects must be a non-empty array', 400));
+  }
+
+  try {
+    const existing = await prisma.subject.findMany({ select: { code: true } });
+    const existingCodes = new Set(existing.map((s) => s.code.toLowerCase()));
+
+    const toCreate = [];
+    const skipped = [];
+    const seenInBatch = new Set();
+
+    subjects.forEach((item, i) => {
+      const name = item?.name?.trim();
+      const code = item?.code?.trim()?.toUpperCase();
+      if (!name || !code) {
+        skipped.push({ index: i + 1, name: name || '(empty)', code: code || '(empty)', reason: 'Name and code are required' });
+        return;
+      }
+      const codeLower = code.toLowerCase();
+      if (existingCodes.has(codeLower)) {
+        skipped.push({ index: i + 1, name, code, reason: 'Code already exists' });
+        return;
+      }
+      if (seenInBatch.has(codeLower)) {
+        skipped.push({ index: i + 1, name, code, reason: 'Duplicate code in batch' });
+        return;
+      }
+      seenInBatch.add(codeLower);
+      toCreate.push({ name, code });
+    });
+
+    if (toCreate.length > 0) {
+      await prisma.subject.createMany({ data: toCreate });
+    }
+
+    return res.json({
+      success: true,
+      data: { created: toCreate.length, skippedCount: skipped.length, skipped },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { createSubject, getAllSubjects, getSubjectById, updateSubject, deleteSubject, bulkCreateSubjects };

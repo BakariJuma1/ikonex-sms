@@ -19,14 +19,15 @@ const apiError = (error) =>
 
 async function triggerPdfDownload(url, filename) {
   const response = await api.get(url, { responseType: 'blob' });
-  const objectUrl = URL.createObjectURL(response.data);
+  const blob = new Blob([response.data], { type: 'application/pdf' });
+  const objectUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = objectUrl;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(objectUrl);
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
 }
 
 export default function Results() {

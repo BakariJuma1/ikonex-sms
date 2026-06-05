@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Table, Button, Modal, Form, Input, InputNumber,
-  Popconfirm, message, Typography, Space, Tag,
+  Popconfirm, message, Typography, Space, Tag, Empty,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import api from '../api/axios';
@@ -177,6 +177,14 @@ export default function GradingScale() {
         loading={loading}
         pagination={false}
         size="middle"
+        locale={{
+          emptyText: (
+            <Empty
+              description="No grading scale entries. Run the seed or add grades manually."
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+            />
+          ),
+        }}
       />
 
       <Modal

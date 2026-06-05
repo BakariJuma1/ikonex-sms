@@ -2,9 +2,12 @@ import { useState, useEffect } from 'react';
 import {
   Table, Button, Modal, Form, Input, Select, Drawer,
   Popconfirm, message, Typography, Space, Descriptions,
-  Tag, Spin, Divider, Statistic, Row, Col,
+  Tag, Spin, Divider, Statistic, Row, Col, Empty, Upload, Alert, List,
 } from 'antd';
-import { PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import {
+  PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined,
+  UploadOutlined, InboxOutlined, DownloadOutlined, CheckCircleOutlined,
+} from '@ant-design/icons';
 import api from '../api/axios';
 
 const { Option } = Select;
@@ -30,6 +33,10 @@ export default function Students() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [drawerData, setDrawerData] = useState(null);
+
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState(null);
 
   const [form] = Form.useForm();
 
@@ -135,6 +142,52 @@ export default function Students() {
   const closeDrawer = () => {
     setDrawerOpen(false);
     setDrawerData(null);
+  };
+
+  // ── CSV import ────────────────────────────────────────────────────────────
+
+  const openImportModal = () => {
+    setImportResult(null);
+    setImportModalOpen(true);
+  };
+
+  const closeImportModal = () => {
+    setImportModalOpen(false);
+    setImportResult(null);
+  };
+
+  const handleImport = async (file) => {
+    setImportLoading(true);
+    setImportResult(null);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const { data } = await api.post('/students/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setImportResult(data.data);
+      if (data.data.imported > 0) fetchStudents();
+    } catch (error) {
+      message.error(apiError(error));
+    } finally {
+      setImportLoading(false);
+    }
+    return false; // Prevent antd auto-upload
+  };
+
+  const downloadTemplate = () => {
+    const csv = [
+      'firstName,lastName,admissionNumber,gender,classStreamName',
+      'Jane,Doe,2024/001,Female,Form 1A',
+      'John,Smith,2024/002,Male,Form 1A',
+    ].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'student_import_template.csv';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   };
 
   const filteredStudents = streamFilter
@@ -269,9 +322,14 @@ export default function Students() {
       {/* ── Page header ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Typography.Title level={2} style={{ margin: 0 }}>Students</Typography.Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
-          New Student
-        </Button>
+        <Space>
+          <Button icon={<UploadOutlined />} onClick={openImportModal}>
+            Import CSV
+          </Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
+            New Student
+          </Button>
+        </Space>
       </div>
 
       {/* ── Stream filter ── */}
@@ -296,6 +354,14 @@ export default function Students() {
         columns={columns}
         loading={loading}
         pagination={{ pageSize: 15, showSizeChanger: false }}
+        locale={{
+          emptyText: (
+            <Empty
+              description={streamFilter ? 'No students in this stream.' : 'No students registered yet.'}
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+            />
+          ),
+        }}
       />
 
       {/* ── Create / Edit Modal ── */}
@@ -369,6 +435,88 @@ export default function Students() {
             </Col>
           </Row>
         </Form>
+      </Modal>
+
+      {/* ── Import CSV Modal ── */}
+      <Modal
+        title="Import Students from CSV"
+        open={importModalOpen}
+        onCancel={closeImportModal}
+        footer={[
+          <Button key="tpl" icon={<DownloadOutlined />} onClick={downloadTemplate}>
+            Download Template
+          </Button>,
+          <Button key="close" type="primary" onClick={closeImportModal}>
+            Close
+          </Button>,
+        ]}
+        width={540}
+        destroyOnClose
+      >
+        {/* Result summary */}
+        {importResult && (
+          <div style={{ marginBottom: 20 }}>
+            <Alert
+              type={importResult.imported > 0 ? 'success' : 'warning'}
+              icon={<CheckCircleOutlined />}
+              showIcon
+              message={
+                <span>
+                  <strong>{importResult.imported}</strong> student{importResult.imported !== 1 ? 's' : ''} imported
+                  {importResult.skippedCount > 0 && (
+                    <span style={{ marginLeft: 8, color: '#faad14' }}>
+                      · <strong>{importResult.skippedCount}</strong> row{importResult.skippedCount !== 1 ? 's' : ''} skipped
+                    </span>
+                  )}
+                </span>
+              }
+              style={{ marginBottom: importResult.skippedCount > 0 ? 8 : 0 }}
+            />
+            {importResult.skippedCount > 0 && (
+              <List
+                size="small"
+                bordered
+                style={{ maxHeight: 180, overflowY: 'auto' }}
+                dataSource={importResult.skipped}
+                renderItem={(item) => (
+                  <List.Item style={{ padding: '4px 12px' }}>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      Row {item.row}
+                      {item.admissionNumber && item.admissionNumber !== '—'
+                        ? ` · ${item.admissionNumber}`
+                        : ''
+                      }
+                    </Typography.Text>
+                    <Typography.Text style={{ fontSize: 12, marginLeft: 8 }}>
+                      {item.reason}
+                    </Typography.Text>
+                  </List.Item>
+                )}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Drop zone */}
+        <Spin spinning={importLoading}>
+          <Upload.Dragger
+            accept=".csv"
+            maxCount={1}
+            showUploadList={false}
+            beforeUpload={handleImport}
+            disabled={importLoading}
+          >
+            <p className="ant-upload-drag-icon">
+              <InboxOutlined />
+            </p>
+            <p className="ant-upload-text">Click or drag a CSV file to upload</p>
+            <p className="ant-upload-hint">
+              Required columns: <code>firstName, lastName, admissionNumber, classStreamName</code>
+              <br />
+              Optional: <code>gender</code> (Male / Female / Other)
+            </p>
+          </Upload.Dragger>
+        </Spin>
       </Modal>
 
       {/* ── View Drawer ── */}

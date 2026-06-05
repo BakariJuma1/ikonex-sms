@@ -75,4 +75,50 @@ const deleteStream = async (req, res, next) => {
   }
 };
 
-module.exports = { createStream, getAllStreams, getStreamById, updateStream, deleteStream };
+const bulkCreateStreams = async (req, res, next) => {
+  const { names } = req.body;
+  if (!Array.isArray(names) || names.length === 0) {
+    return next(new AppError('names must be a non-empty array', 400));
+  }
+
+  try {
+    const existing = await prisma.classStream.findMany({ select: { name: true } });
+    const existingNames = new Set(existing.map((s) => s.name.toLowerCase()));
+
+    const toCreate = [];
+    const skipped = [];
+    const seenInBatch = new Set();
+
+    names.forEach((rawName, i) => {
+      const name = rawName?.trim();
+      if (!name) {
+        skipped.push({ index: i + 1, name: rawName || '(empty)', reason: 'Empty name' });
+        return;
+      }
+      const nameLower = name.toLowerCase();
+      if (existingNames.has(nameLower)) {
+        skipped.push({ index: i + 1, name, reason: 'Already exists' });
+        return;
+      }
+      if (seenInBatch.has(nameLower)) {
+        skipped.push({ index: i + 1, name, reason: 'Duplicate in batch' });
+        return;
+      }
+      seenInBatch.add(nameLower);
+      toCreate.push({ name });
+    });
+
+    if (toCreate.length > 0) {
+      await prisma.classStream.createMany({ data: toCreate });
+    }
+
+    return res.json({
+      success: true,
+      data: { created: toCreate.length, skippedCount: skipped.length, skipped },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { createStream, getAllStreams, getStreamById, updateStream, deleteStream, bulkCreateStreams };
