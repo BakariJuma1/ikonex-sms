@@ -80,7 +80,7 @@ model GradingScale {
   id        String   @id @default(cuid())
   minScore  Decimal  @db.Decimal(5, 2)
   maxScore  Decimal  @db.Decimal(5, 2)
-  grade     String
+  grade     String   @unique
   points    Decimal  @db.Decimal(4, 2)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

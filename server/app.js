@@ -13,6 +13,7 @@ app.use('/api/students', require('./src/routes/student.routes'));
 app.use('/api/subjects', require('./src/routes/subject.routes'));
 app.use('/api/stream-subjects', require('./src/routes/streamSubject.routes'));
 app.use('/api/scores', require('./src/routes/score.routes'));
+app.use('/api/results', require('./src/routes/results.routes'));
 
 app.get('/', (req, res) => {
   res.json({ message: 'ikonex SMS API is running' });
