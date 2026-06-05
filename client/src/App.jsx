@@ -6,6 +6,7 @@ import Students from './pages/Students';
 import Subjects from './pages/Subjects';
 import Scores from './pages/Scores';
 import Results from './pages/Results';
+import GradingScale from './pages/GradingScale';
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
           <Route path="subjects" element={<Subjects />} />
           <Route path="scores" element={<Scores />} />
           <Route path="results" element={<Results />} />
+          <Route path="grading" element={<GradingScale />} />
         </Route>
       </Routes>
     </BrowserRouter>

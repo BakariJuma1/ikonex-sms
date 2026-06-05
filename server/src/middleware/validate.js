@@ -37,4 +37,28 @@ const validateCreateScore = [
   handleValidation,
 ];
 
-module.exports = { validateCreateStream, validateCreateStudent, validateCreateSubject, validateCreateScore };
+const validateCreateGradingScale = [
+  body('grade').trim().notEmpty().withMessage('Grade is required'),
+  body('minScore')
+    .notEmpty().withMessage('minScore is required')
+    .isFloat({ min: 0, max: 100 }).withMessage('minScore must be between 0 and 100'),
+  body('maxScore')
+    .notEmpty().withMessage('maxScore is required')
+    .isFloat({ min: 0, max: 100 }).withMessage('maxScore must be between 0 and 100'),
+  body('points')
+    .notEmpty().withMessage('points is required')
+    .isFloat({ min: 0 }).withMessage('points must be a non-negative number'),
+  handleValidation,
+];
+
+const validateUpdateGradingScale = [
+  body('minScore').optional().isFloat({ min: 0, max: 100 }).withMessage('minScore must be between 0 and 100'),
+  body('maxScore').optional().isFloat({ min: 0, max: 100 }).withMessage('maxScore must be between 0 and 100'),
+  body('points').optional().isFloat({ min: 0 }).withMessage('points must be a non-negative number'),
+  handleValidation,
+];
+
+module.exports = {
+  validateCreateStream, validateCreateStudent, validateCreateSubject,
+  validateCreateScore, validateCreateGradingScale, validateUpdateGradingScale,
+};

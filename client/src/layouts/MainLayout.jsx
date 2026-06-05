@@ -8,6 +8,7 @@ import {
   BookOutlined,
   FileTextOutlined,
   TrophyOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 
 const { Header, Sider, Content } = Layout;
@@ -19,6 +20,7 @@ const menuItems = [
   { key: '/subjects', icon: <BookOutlined />,        label: 'Subjects' },
   { key: '/scores',   icon: <FileTextOutlined />,    label: 'Scores' },
   { key: '/results',  icon: <TrophyOutlined />,      label: 'Results' },
+  { key: '/grading',  icon: <SettingOutlined />,     label: 'Grading' },
 ];
 
 export default function MainLayout() {
